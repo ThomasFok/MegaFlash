@@ -1,0 +1,6 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "MCU_RaspberryPi_and_Boards")(type "KiCad")(uri "${KIPRJMOD}/MCU_RaspberryPi_and_Boards.pretty")(options "")(descr ""))
+  (lib (name "misc")(type "KiCad")(uri "${KIPRJMOD}/misc.pretty")(options "")(descr "Misc Footprint for Apple IIc Storage"))
+  (lib (name "PC Engine")(type "KiCad")(uri "U:/Thomas/Documents/Electronics/PC Engine/DIY HuCard/DIY Super System Card/PC Engine.pretty")(options "")(descr "PC Engine"))
+)
