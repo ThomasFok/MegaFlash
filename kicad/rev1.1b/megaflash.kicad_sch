@@ -12951,7 +12951,7 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "100k Through Hole Resistor"
+		(property "Description" "100k Through Hole Resistor, 1/4W"
 			(at 226.06 106.68 0)
 			(effects
 				(font
@@ -14506,7 +14506,7 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "100k Through Hole Resistor"
+		(property "Description" "100k Through Hole Resistor, 1/4W"
 			(at 180.34 106.68 0)
 			(effects
 				(font
