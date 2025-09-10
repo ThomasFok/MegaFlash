@@ -5,6 +5,8 @@
 ;
 ; Ver 4.0 - Complete rewrite for RP2350
 ;
+; Ver 4.1 - Adjust delay for slower GAL16V8 and 74HC138 Address Decoder
+;
 ; The usual implementation is that the PIO program informs the CPU when 6502 
 ; is reading from us. The CPU then sends the data to PIO program. The PIO program 
 ; outputs the data to 6502. But the CPU only has 450ns, which equals to 67 cycles
@@ -79,7 +81,7 @@
   ;6502 is reading from us
   ;
 read_cycle:
-  mov isr, null   	; Clear ISR. No need to add delay for read cycle. Only address bus is needed 
+  mov isr, null [1]  	  ; Clear ISR. V4.1:Adding 1 delay improves compatibility with 74138 address decoder
  
   in pins, A2BUS_WIDTH  ; Read Apple Bus
   push noblock          ; Don't use auto-push since auto-push is blocking
@@ -141,7 +143,7 @@ read_cycle:
   out x,2        [7]            ;x=A1:A0
   out y,2        [7]            ;y=A3:A2
   nop            [7]            ;Additional delay
-  nop            [6]            ;Additional delay
+  nop            [3]            ;Additional delay. V4.1:Change delay from 6 to 3 for slower GAL16V8
 
   ;Read output value to osr  
   mov osr,rxfifo[y]    
@@ -151,7 +153,7 @@ byte_select:                    ;Max loop 4 times
   out pins, 8                   ;Send lowest byte out
   jmp x--,byte_select
 
-  ;Timing: Max 60 cycles or 400ns from nDEVSEL is activted
+  ;Timing: Max 57 cycles or 380ns from nDEVSEL is activted
   mov pindirs,~null  side 0     ;Switch pindirs to output	
 
 cycle_end:
