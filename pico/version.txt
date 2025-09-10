@@ -1,3 +1,10 @@
+Version 1.1.6 09-Sep-2025
+Pico Firmware
+- Optimize the timing of RP2350 PIO for compatibility with slower GAL16V8
+
+Apple Firmware
+- No changes (V1.0)
+
 Version 1.1.5 25-Aug-2025
 Pico Firmware
 - ADTPro VSDRIVE drivers are included in ROM Disk
