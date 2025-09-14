@@ -28,7 +28,7 @@ A brief [user guide](/userguide.pdf) is available for more information.
 System ROM replacement is required for MegaFlash to function.
 
 ## Hardware
-The hardware is quite simple.  All the hard work is handled by Pi Pico.  Apple 65C02 CPU only needs to copy data between RAM and Pico. Schematic is available [here](./kicad/rev1.0/schematic-rev1.0.pdf).
+The hardware is quite simple.  All the heavy work is handled by Pi Pico.  Apple 65C02 CPU only needs to copy data between RAM and Pico. Schematic is available [here](./kicad/rev1.0a/schematic-rev1.0a.pdf).
 
 - Raspberry Pi Pico2 W
 - Winbond 25Q01 NOR Flash memory
