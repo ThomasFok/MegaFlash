@@ -120,7 +120,6 @@ void ExecuteTFTP(const uint32_t taskid) {
       assert(0); //should not happen
     }  
       
-    //CTFTPTXTask task(unitNum,hostname,filename,enable1kBlockSize,tftpTimeout,tftpMaxAttempt,tftpServerPort);
     task->Run(ssid,wpakey);
     
   } catch(int e) {
