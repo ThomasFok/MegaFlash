@@ -390,21 +390,9 @@ bool WriteBlockForImageTransfer(uint unitNum, const uint blockNum, const uint8_t
 
   if (type==TYPE_FLASH) {
     //
-    //Write to Flash
+    //Writer to Flash
     //
-    blockloc_t blockLoc = GetBlockLoc(mediumUnitNum,blockNum);
-    
-    //Erase 64kB sector every 16 blocks and block number <8192
-    if (blockNum<8192 && blockNum%16 == 0) {
-      assert( (blockLoc.blockAddress&0xffff) == 0);  //Block Address should be 64k-aligned
-      
-      if (!tsIsSector64kErased(blockLoc.deviceNum, blockLoc.blockAddress)) {
-        tsEraseSector64k(blockLoc.deviceNum,blockLoc.blockAddress);
-      }
-    }
-
-    //Program the block
-    success = tsWriteOneBlockAlreadyErased_Public(blockLoc, srcBuffer);    
+    success = tsWriteBlockFlashForImageTransfer_Public(mediumUnitNum, blockNum, srcBuffer);
   }
   else if (type==TYPE_RAMDISK) {
     //

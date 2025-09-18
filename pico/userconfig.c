@@ -22,8 +22,6 @@
 //to default.
 #define MAGICVALUE         0x5e97724c
 
-//Combine Security Register 1 and 2 as one single 512 bytes storage area
-#define SECURITYREG_SIZE 256  //Length of security register  
 #define CONFIGBUFFERSIZE 512
 uint8_t configBuffer[CONFIGBUFFERSIZE]; 
 
@@ -45,8 +43,7 @@ static bool settingsNotInFlash = false;
 // Read and Decrypt configuration from Flash
 //  
 static void ReadDecryptConfigFromFlash() {
-  tsReadSecurityRegister(1,configBuffer,0 /*offset*/,SECURITYREG_SIZE);
-  tsReadSecurityRegister(2,configBuffer+SECURITYREG_SIZE,0 /*offset*/,SECURITYREG_SIZE);
+  ReadUserConfigBlock(configBuffer);
   Decrypt(configBuffer,configBuffer,CONFIGBUFFERSIZE);
 }  
   
@@ -58,14 +55,12 @@ static void EncryptWriteConfigToFlash() {
   #ifdef PICO_RP2040  
   /* To reduce stack memory usage on RP2040, no extra buffer is used */
   Encrypt(configBuffer,configBuffer,CONFIGBUFFERSIZE);
-  tsWriteSecurityRegister(1,configBuffer,0 /*offset*/,SECURITYREG_SIZE);
-  tsWriteSecurityRegister(2,configBuffer+SECURITYREG_SIZE,0 /*offset*/,SECURITYREG_SIZE);  
+  WriteUserConfigBlock(configBuffer);
   Decrypt(configBuffer,configBuffer,CONFIGBUFFERSIZE); //Restore the content of configBuffer
   #else
-  uint8_t buffer[CONFIGBUFFERSIZE];  
-  Encrypt(buffer,configBuffer,CONFIGBUFFERSIZE);
-  tsWriteSecurityRegister(1,buffer,0 /*offset*/,SECURITYREG_SIZE);
-  tsWriteSecurityRegister(2,buffer+SECURITYREG_SIZE,0 /*offset*/,SECURITYREG_SIZE);  
+  uint8_t encryptBuffer[CONFIGBUFFERSIZE];  
+  Encrypt(encryptBuffer,configBuffer,CONFIGBUFFERSIZE);
+  WriteUserConfigBlock(encryptBuffer);  
   #endif
 }
   

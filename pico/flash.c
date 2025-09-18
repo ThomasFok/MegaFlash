@@ -84,7 +84,7 @@ static uint32_t flashSize1 = 0;
 
 //Mutex
 //Recursive Mutex is used because the functions are calling one another
-//Recursive Mutex avoid dead lock
+//Recursive Mutex avoids dead lock
 #if USEMUTEX
   auto_init_recursive_mutex(flashMutex);
   #define MUTEXLOCK()   recursive_mutex_enter_blocking(&flashMutex)
@@ -93,6 +93,12 @@ static uint32_t flashSize1 = 0;
   #define MUTEXLOCK()   do{}while(0)
   #define MUTEXUNLOCK() do{}while(0)
 #endif
+
+//To store the location of a block
+typedef struct {
+  uint deviceNum;         //Flash Chip device number
+  uint32_t blockAddress;  //Address of block
+} blockloc_t;
 
 ////////////////////////////////////////////////////////////////////
 //Function Prototypes of Read by DMA
@@ -105,8 +111,6 @@ static uint32_t flashSize1 = 0;
 //But it is not removed in case it is useful in future.
 static uint32_t ReadFromFlashByDMA(uint8_t *destBuffer, const uint32_t len);
 static void WriteToFlashByDMA(const uint8_t *srcBuffer, const uint32_t len);
-
-
 
 
 //////////////////////////////////////////////////////
@@ -380,7 +384,7 @@ static void tsProgramSecurityRegister(const uint32_t regnum,const uint8_t* src,c
 // Input: Security Register Number (1-3),
 //
 // Note: Always erase flash chip #0
-void tsEraseSecurityRegister(const uint32_t regnum) {
+static void tsEraseSecurityRegister(const uint32_t regnum) {
   if (regnum==0 || regnum >3) {
     assert(0);
     return;
@@ -419,7 +423,7 @@ void tsEraseSecurityRegister(const uint32_t regnum) {
 //        len    - Length of data
 //
 // Note: Always Read from flash chip #0
-void tsReadSecurityRegister(const uint32_t regnum,uint8_t* dest,const uint8_t offset,const size_t len) {
+static void tsReadSecurityRegister(const uint32_t regnum,uint8_t* dest,const uint8_t offset,const size_t len) {
   if (regnum==0 || regnum >3) {
     assert(0);
     return;
@@ -460,7 +464,7 @@ void tsReadSecurityRegister(const uint32_t regnum,uint8_t* dest,const uint8_t of
 //        len    - Length of data
 //
 // Note: Always Read from flash chip #0
-void tsWriteSecurityRegister(const uint32_t regnum,uint8_t* src,const uint8_t offset,const size_t len) {
+static void tsWriteSecurityRegister(const uint32_t regnum,const uint8_t* src,const uint8_t offset,const size_t len) {
   if (regnum==0 || regnum >3) {
     assert(0);
     return;
@@ -490,6 +494,47 @@ void tsWriteSecurityRegister(const uint32_t regnum,uint8_t* src,const uint8_t of
 }
 
 ////////////////////////////////////////////////////////////////////
+// Read UserConfig block from security register
+// 
+// Input: uint8_t* dest - destination buffer
+//
+// Output: bool - success
+//
+// Note: Security register 1 and 2 are used to store UserConfigBlock
+bool ReadUserConfigBlock(uint8_t* dest) {
+  if (0==flashSize0) {
+    //clear the dest buffer if flash chip does not exist
+    memset(dest,0, 512);
+    return false;
+  }
+  
+  tsReadSecurityRegister(1,dest    ,0 /*offset*/,256);
+  tsReadSecurityRegister(2,dest+256,0 /*offset*/,256);
+  return true;
+}
+
+////////////////////////////////////////////////////////////////////
+// Write UserConfig block to security register
+// 
+// Input: uint8_t* src - source buffer
+//
+// Output: bool - success
+//
+// Note: Security register 1 and 2 are used to store UserConfigBlock
+bool WriteUserConfigBlock(const uint8_t *src) {
+ if (0==flashSize0) {
+    return false;
+ }   
+
+  tsWriteSecurityRegister(1,src    ,0 /*offset*/,256);
+  tsWriteSecurityRegister(2,src+256,0 /*offset*/,256);  
+  return true;
+}
+
+
+
+
+////////////////////////////////////////////////////////////////////
 // Translate unitNum and blockNum to Device Number and Flash Address
 // Assume unitNum and blockNum are valid.
 //
@@ -499,7 +544,7 @@ void tsWriteSecurityRegister(const uint32_t regnum,uint8_t* src,const uint8_t of
 //
 // Output: blockloc_t struct
 //
-blockloc_t __no_inline_not_in_flash_func(GetBlockLoc)(uint unitNum, const uint blockNum) {
+static blockloc_t __no_inline_not_in_flash_func(GetBlockLoc)(uint unitNum, const uint blockNum) {
   blockloc_t blockLoc;
 
   //Make sure unitNum != 0
@@ -598,7 +643,7 @@ static void tsEraseSector(const uint deviceNum, uint32_t address) {
 // Erase one 64-kB Sector
 // Note: It takes at least 150ms to complete. 
 //
-void tsEraseSector64k(const uint deviceNum, uint32_t address) {
+static void tsEraseSector64k(const uint deviceNum, uint32_t address) {
   uint8_t msg[5];
   
   //Make sure it aligns at the begining of a sector 
@@ -675,6 +720,7 @@ static uint32_t __no_inline_not_in_flash_func(tsReadOneBlock)(const blockloc_t b
 //
 // Output: CRC32 of the sector data
 //
+// todo: Add destBuffer
 static uint32_t __no_inline_not_in_flash_func(tsReadSector)(const uint deviceNum,uint32_t sectorAddress){
   uint8_t msg[6];
   
@@ -803,12 +849,12 @@ static bool __no_inline_not_in_flash_func(IsEmptyPage)(const uint8_t* srcBuffer)
 // Note:
 // CRC32 Checksum of 4kB sector filled with 0xff = 0xf154670a
 // 
-bool tsIsSector64kErased(const uint deviceNum, uint32_t address) {
+static bool tsIsSector64kErased(const uint deviceNum, uint32_t address) {
   assert( (address&0xffff)==0);
   bool retValue = false; //Assume false (Not erased)
   
   //64kB = 16 4kB-Sector
-  //Check each sector one by one
+  //Check each 4kB-sector one by one
   MUTEXLOCK();
   for(uint i=0;i<16;++i) {
     //Read one 4kB Sector
@@ -1433,17 +1479,33 @@ rwerror_t __no_inline_not_in_flash_func(tsWriteBlockFlash_Public)(const uint uni
 }
 
 ////////////////////////////////////////////////////////////////////
-// Write Block to Flash and Assume the Flash Chip is already erased.
+// Write Block to Flash for Disk Image Transfer
 // Assume unitNum and blockNum are valid.
 //
-// Input: blockLoc  - Block Location
-//        srcBuffer - Data to be written (512 Bytes)
+// Input: Unit Number, Block Number
+//        srcBuffer    - Data to be written (512 Bytes)
 //
-// Output: bool - true if write operation is successful
+// Output: true if write operation is successful
 //
-bool tsWriteOneBlockAlreadyErased_Public(const blockloc_t blockLoc, const uint8_t* srcBuffer){
+// This routine assumes the existing data in entire the ProDOS unit 
+// can be erased. It erases the flash chip in 64kB chunk and does not
+// preserve existing data
+//
+bool tsWriteBlockFlashForImageTransfer_Public(const uint unitNum, const uint blockNum, const uint8_t* srcBuffer){
   bool success;
+  const blockloc_t blockLoc = GetBlockLoc(unitNum,blockNum);
+
   MUTEXLOCK();
+  //Erase 64kB sector every 16 blocks and block number <8192
+  if (blockNum<8192 && blockNum%16 == 0) {
+    assert( (blockLoc.blockAddress&0xffff) == 0);  //Block Address should be 64k-aligned
+      
+    if (!tsIsSector64kErased(blockLoc.deviceNum, blockLoc.blockAddress)) {
+      tsEraseSector64k(blockLoc.deviceNum,blockLoc.blockAddress);
+    }
+  }
+
+  //Program the block
 #if BITINVERSION  
   uint8_t __attribute__((aligned(4))) tempWriteBuffer[BLOCKSIZE];  
   CopyBitInversion(tempWriteBuffer,srcBuffer,BLOCKSIZE);
@@ -1459,15 +1521,14 @@ bool tsWriteOneBlockAlreadyErased_Public(const blockloc_t blockLoc, const uint8_
 //////////////////////////////////////////////////////
 // Abort Erase Flash Disk Process
 //
-// EraseFlashDisk takes up to 2 minutes and it is used
+// tsEraseFlashDisk() takes up to 2 minutes and it is used
 // by Control Panel. If Apple is reset during the erase,
 // the erase process should be aborted. Otherwise, MegaFlash
 // does not respond any requests from Apple.
 //
-// The method is abortEraseFlashDisk is reset to false when
-// tsEraseFlashDisk() is called. If Apple is reset, an interrupt
-// is generated. The ISR calls AbortEraseFlashDisk() and  
-// abortEraseFlashDisk is set. Then, the process is aborted.
+// When Apple is reset, an interrupt is generated. The ISR 
+// calls AbortEraseFlashDisk() and abortEraseFlashDisk variable
+// is set. Then, the process is aborted.
 //
 static volatile bool abortEraseFlashDisk;
 void AbortEraseFlashDisk() {
@@ -1497,8 +1558,4 @@ void tsEraseFlashDisk(const uint unitNum){
   }
   MUTEXUNLOCK();
 }
-
-
-
-
 
