@@ -45,8 +45,8 @@ void gpio_intr_callback(uint gpio, uint32_t events){
 }
 
 //
-// Interrupt if Apple Reset signal is active and calloc
-// gpio_intr_callback()
+// Generate Interrupt if Apple Reset signal is active
+// set gpio_intr_callback() as ISR (Interrupt Callback)
 static void EnableAppleResetInterrupt() {
   gpio_init(nRESET_PIN);
   gpio_set_irq_enabled_with_callback(nRESET_PIN, GPIO_IRQ_EDGE_FALL, true /*enabled*/, &gpio_intr_callback);
@@ -76,6 +76,7 @@ void __no_inline_not_in_flash_func(core1Main)() {
   BusLoop();
 }
 
+//cmdhandler.c can set updateNTPNow to true
 volatile bool updateNTPNow = false;
 
 //
@@ -89,7 +90,7 @@ void __no_inline_not_in_flash_func(core0Loop)() {
   if (CheckPicoW()) {
     do {
       updateNTPNow = false;
-      int err = GetNetworkTime();
+      int err = GetNetworkTime(); //Get current time from NTP Server
       DEBUG_PRINTF("GetNTP err=%d (%d=NETERR_NONE)\n",err,NETERR_NONE);
       if (err==NETERR_NONE) nextUpdateTime = make_timeout_time_ms(NEXTUPDATE_SUCCESS);
       else nextUpdateTime = make_timeout_time_ms(NEXTUPDATE_FAILED);
