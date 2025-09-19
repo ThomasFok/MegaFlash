@@ -11,7 +11,6 @@
 #include "romdisk.h"
 #include "ramdisk.h"
 #include "rtc.h"
-#include "dmamemops.h"
 #include "userconfig.h"
 #include "debug.h"
 #include "misc.h"
@@ -620,7 +619,8 @@ static void DoLoadCPanel() {
   uint page = parameterBuffer[0]; //Page Requested
   if (page<pageCount) {
     //Copy Control Panel Program code to Data Buffer
-    CopyMemoryAligned(dataBuffer, cpanelData+page*256, 256);
+    //No need to use DMA since the page size is 256 bytes only
+    memcpy(dataBuffer, cpanelData+page*256, 256);
     ClearError();
   } else {
     //invalid page number

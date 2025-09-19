@@ -6,7 +6,6 @@
 #include "defines.h"
 #include "busloop.h"
 #include "cmdhandler.h"
-#include "dmamemops.h"
 
 //--------------------------------------------------------------------
 //Accessing buffers from Apple IIc
