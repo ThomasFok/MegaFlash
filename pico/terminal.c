@@ -142,7 +142,7 @@ static void EraseFlash() {
     printf("\nErasing... Please wait.");
     TurnOnActLed();
     TurnOnPicoLed();
-    tsEraseEverything();
+    EraseEverything();
     TurnOffActLed();
     TurnOffPicoLed();
     printf("\nDone!\n");

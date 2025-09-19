@@ -272,12 +272,12 @@ uint __no_inline_not_in_flash_func(ReadBlock)(const uint unitNum, const uint blo
       goto exit;
       break;
     case TYPE_FLASH:
-      spResult = tsReadBlockFlash_Public(mediumUnitNum, blockNum,destBuffer);
+      spResult = ReadBlockFlash_Public(mediumUnitNum, blockNum,destBuffer);
       if (spResult != SP_NOERR) retValue=MFERR_RWERROR;  
       goto exit;
       break;
     case TYPE_RAMDISK:
-      spResult = tsReadBlockRamdisk(blockNum, destBuffer);
+      spResult = ReadBlockRamdisk(blockNum, destBuffer);
       if (spResult != SP_NOERR) retValue=MFERR_RWERROR;  
       goto exit;
       break;    
@@ -332,11 +332,11 @@ uint __no_inline_not_in_flash_func(WriteBlock)(const uint unitNum, const uint bl
       retValue = MFERR_RWERROR;
       goto exit;
     case TYPE_FLASH:
-      spResult = tsWriteBlockFlash_Public(mediumUnitNum, blockNum, srcBuffer);
+      spResult = WriteBlockFlash_Public(mediumUnitNum, blockNum, srcBuffer);
       if (spResult != SP_NOERR) retValue=MFERR_RWERROR;  
       goto exit;
     case TYPE_RAMDISK:
-      spResult = tsWriteBlockRamdisk(blockNum, srcBuffer);
+      spResult = WriteBlockRamdisk(blockNum, srcBuffer);
       if (spResult != SP_NOERR) retValue=MFERR_RWERROR;  
       goto exit;      
     default:
@@ -392,13 +392,13 @@ bool WriteBlockForImageTransfer(uint unitNum, const uint blockNum, const uint8_t
     //
     //Writer to Flash
     //
-    success = tsWriteBlockFlashForImageTransfer_Public(mediumUnitNum, blockNum, srcBuffer);
+    success = WriteBlockFlashForImageTransfer_Public(mediumUnitNum, blockNum, srcBuffer);
   }
   else if (type==TYPE_RAMDISK) {
     //
     //Write to RAMDisk
     //
-    rwerror_t spResult = tsWriteBlockRamdisk(blockNum, srcBuffer);
+    rwerror_t spResult = WriteBlockRamdisk(blockNum, srcBuffer);
     success = (spResult == SP_NOERR);
   }
   else {
@@ -465,11 +465,11 @@ bool EraseEntireUnit(const uint unitNum) {
       success = false;
       goto exit;
     case TYPE_FLASH:
-      tsEraseFlashDisk(mediumUnitNum);
+      EraseFlashDisk(mediumUnitNum);
       success = true;
       goto exit;
     case TYPE_RAMDISK:
-      tsEraseRamdisk();
+      EraseRamdisk();
       success = true;
       goto exit;      
     default:

@@ -382,8 +382,8 @@ void GetDeviceInfoString(char* dest) {
   //
   uint32_t flashSize = GetFlashSize();
   dest += sprintf(dest,"Total Flash Capacity = %dMB\n\r", flashSize);
-  dest += sprintf(dest,"Flash Chip #0 JEDEC ID = %Xh\n\r", tsReadJEDECID(0));
-  dest += sprintf(dest,"Flash Chip #1 JEDEC ID = %Xh\n\r", tsReadJEDECID(1));
+  dest += sprintf(dest,"Flash Chip #0 JEDEC ID = %Xh\n\r", ReadJEDECID(0));
+  dest += sprintf(dest,"Flash Chip #1 JEDEC ID = %Xh\n\r", ReadJEDECID(1));
 }
 
 

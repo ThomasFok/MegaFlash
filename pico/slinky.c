@@ -40,7 +40,7 @@ void SlinkyInit() {
   UpdateMegaFlashRegisters(1,initvalue);
   UpdateMegaFlashRegisters(2,initvalue);
   UpdateMegaFlashRegisters(3,initvalue);  
-  tsEraseRamdiskQuick(); 
+  EraseRamdiskQuick(); 
   //We don't format and provide a boot block on the Slinky RamDisk so that
   //it behaves like a real slinky card.
   //The stock firmware creates the root directory structure on Power Up

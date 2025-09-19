@@ -11,12 +11,12 @@ void InitSpi();
 void InitFlash();
 
 //Flash Chip ID routines
-uint32_t tsReadJEDECID(const uint deviceNum);
-uint64_t tsReadUniqueID(const uint deviceNum);
-uint64_t tsReadUniqueIDDevice0();
+uint32_t ReadJEDECID(const uint deviceNum);
+uint64_t ReadUniqueID(const uint deviceNum);
+uint64_t ReadUniqueIDDevice0();
 
 //Erase entire flash chips
-void tsEraseEverything();
+void EraseEverything();
 
 //UserConfig Block Access routines
 bool ReadUserConfigBlock(uint8_t* dest);
@@ -33,14 +33,14 @@ void GetDIBFlash(const uint unitNum, uint8_t *destBuffer);
 // All ProDOS blocks must be handled by routines with _Public suffix.
 // Read Bit Inversion note in flash.c file
 //
-rwerror_t tsReadBlockFlash_Public(const uint unitNum, const uint blockNum, uint8_t* destBuffer);
-rwerror_t tsWriteBlockFlash_Public(const uint unitNum, const uint blockNum, const uint8_t* srcBuffer);
-bool tsWriteBlockFlashForImageTransfer_Public(const uint unitNum, const uint blockNum, const uint8_t* srcBuffer);
+rwerror_t ReadBlockFlash_Public(const uint unitNum, const uint blockNum, uint8_t* destBuffer);
+rwerror_t WriteBlockFlash_Public(const uint unitNum, const uint blockNum, const uint8_t* srcBuffer);
+bool WriteBlockFlashForImageTransfer_Public(const uint unitNum, const uint blockNum, const uint8_t* srcBuffer);
 
 //
 // Erase Flash Disk
 //
-void tsEraseFlashDisk(const uint unitNum);
+void EraseFlashDisk(const uint unitNum);
 void AbortEraseFlashDisk();
 
 #ifdef __cplusplus

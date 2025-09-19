@@ -42,8 +42,16 @@
 // Thread-safe is needed because both cores may access to flash at the same
 // time if TFTP is running.
 //
-// Note: All functions which are thread-safe and access flash are prefix with ts
-#define USEMUTEX 1
+// The protocol is: all exported functions (non-static functions) which access
+// the flash memory must be protected by Mutex.
+//
+// Recursive Mutex is used because the functions are calling one another
+// Recursive Mutex avoids dead lock
+auto_init_recursive_mutex(flashMutex);
+#define MUTEXLOCK()   recursive_mutex_enter_blocking(&flashMutex)
+#define MUTEXUNLOCK() recursive_mutex_exit(&flashMutex)
+
+
 
 //SPI pins
 const uint CS0_PIN  = 5;  //Chip #0 /CS
@@ -82,17 +90,7 @@ static uint32_t unitCountFlash1 = 0;
 static uint32_t flashSize0 = 0;
 static uint32_t flashSize1 = 0;
 
-//Mutex
-//Recursive Mutex is used because the functions are calling one another
-//Recursive Mutex avoids dead lock
-#if USEMUTEX
-  auto_init_recursive_mutex(flashMutex);
-  #define MUTEXLOCK()   recursive_mutex_enter_blocking(&flashMutex)
-  #define MUTEXUNLOCK() recursive_mutex_exit(&flashMutex)
-#else
-  #define MUTEXLOCK()   do{}while(0)
-  #define MUTEXUNLOCK() do{}while(0)
-#endif
+
 
 //To store the location of a block
 typedef struct {
@@ -348,7 +346,7 @@ static void SetFlashDriveStrength(const uint deviceNum) {
 //        Length of data
 //
 // Note: Always write to Flash Chip #0
-static void tsProgramSecurityRegister(const uint32_t regnum,const uint8_t* src,const size_t len) {
+static void ProgramSecurityRegister(const uint32_t regnum,const uint8_t* src,const size_t len) {
   if (regnum==0 || regnum >3) {
     assert(0);
     return;
@@ -363,7 +361,6 @@ static void tsProgramSecurityRegister(const uint32_t regnum,const uint8_t* src,c
   msg[2] = (uint8_t)(address);  address>>=8;
   msg[1] = (uint8_t)(address);
   
-  MUTEXLOCK();
   WriteEnable(DEVICE0);
   enable_spi0(DEVICE0);
   spi_write_blocking(spi0, msg, 5);
@@ -374,7 +371,6 @@ static void tsProgramSecurityRegister(const uint32_t regnum,const uint8_t* src,c
   //It takes about 0.7-3.5ms
   busy_wait_us_32(300); //At least 50ns delay is needed after erase/write command (CS deselect time)
   WaitUntilBusyClear(DEVICE0); 
-  MUTEXUNLOCK();
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -384,7 +380,7 @@ static void tsProgramSecurityRegister(const uint32_t regnum,const uint8_t* src,c
 // Input: Security Register Number (1-3),
 //
 // Note: Always erase flash chip #0
-static void tsEraseSecurityRegister(const uint32_t regnum) {
+static void EraseSecurityRegister(const uint32_t regnum) {
   if (regnum==0 || regnum >3) {
     assert(0);
     return;
@@ -399,7 +395,6 @@ static void tsEraseSecurityRegister(const uint32_t regnum) {
   msg[2] = (uint8_t)(address);  address>>=8;
   msg[1] = (uint8_t)(address);
   
-  MUTEXLOCK();
   WriteEnable(DEVICE0);
   enable_spi0(DEVICE0);
   spi_write_blocking(spi0, msg, 5);
@@ -410,7 +405,6 @@ static void tsEraseSecurityRegister(const uint32_t regnum) {
   //Wait until the operation is completed.
   sleep_ms(40);   //At least 50ns delay is needed after erase/write command (CS deselect time)
   WaitUntilBusyClear(DEVICE0);
-  MUTEXUNLOCK();
 } 
 
 ////////////////////////////////////////////////////////////////////
@@ -423,7 +417,7 @@ static void tsEraseSecurityRegister(const uint32_t regnum) {
 //        len    - Length of data
 //
 // Note: Always Read from flash chip #0
-static void tsReadSecurityRegister(const uint32_t regnum,uint8_t* dest,const uint8_t offset,const size_t len) {
+static void ReadSecurityRegister(const uint32_t regnum,uint8_t* dest,const uint8_t offset,const size_t len) {
   if (regnum==0 || regnum >3) {
     assert(0);
     return;
@@ -444,12 +438,10 @@ static void tsReadSecurityRegister(const uint32_t regnum,uint8_t* dest,const uin
   msg[1] = (uint8_t)(address);
   msg[5] = 0;   //Dummy 8-bit 
   
-  MUTEXLOCK();
   enable_spi0(DEVICE0);
   spi_write_blocking(spi0, msg, 6);
   spi_read_blocking(spi0, REPEATED_TX_DATA, dest, len);  //No need to use DMA
   disable_spi0();
-  MUTEXUNLOCK();
 }
 
 
@@ -464,7 +456,7 @@ static void tsReadSecurityRegister(const uint32_t regnum,uint8_t* dest,const uin
 //        len    - Length of data
 //
 // Note: Always Read from flash chip #0
-static void tsWriteSecurityRegister(const uint32_t regnum,const uint8_t* src,const uint8_t offset,const size_t len) {
+static void WriteSecurityRegister(const uint32_t regnum,const uint8_t* src,const uint8_t offset,const size_t len) {
   if (regnum==0 || regnum >3) {
     assert(0);
     return;
@@ -477,19 +469,19 @@ static void tsWriteSecurityRegister(const uint32_t regnum,const uint8_t* src,con
   
   if (offset==0 && len==256) {
     //Overwrite the entire security register
-    tsEraseSecurityRegister(regnum);  
-    tsProgramSecurityRegister(regnum,src,256);    
+    EraseSecurityRegister(regnum);  
+    ProgramSecurityRegister(regnum,src,256);    
   }  else {
     //Read the existing data from security register
     uint8_t buffer[256];
-    tsReadSecurityRegister(regnum,buffer,0,256);
+    ReadSecurityRegister(regnum,buffer,0,256);
     
     //Copy source data to buffer
     memcpy(buffer+offset,src,len);
 
     //Write the data back
-    tsEraseSecurityRegister(regnum);
-    tsProgramSecurityRegister(regnum,buffer,len);    
+    EraseSecurityRegister(regnum);
+    ProgramSecurityRegister(regnum,buffer,len);    
   }
 }
 
@@ -508,8 +500,11 @@ bool ReadUserConfigBlock(uint8_t* dest) {
     return false;
   }
   
-  tsReadSecurityRegister(1,dest    ,0 /*offset*/,256);
-  tsReadSecurityRegister(2,dest+256,0 /*offset*/,256);
+  MUTEXLOCK();
+  ReadSecurityRegister(1,dest    ,0 /*offset*/,256);
+  ReadSecurityRegister(2,dest+256,0 /*offset*/,256);
+  MUTEXUNLOCK();
+  
   return true;
 }
 
@@ -526,8 +521,11 @@ bool WriteUserConfigBlock(const uint8_t *src) {
     return false;
  }   
 
-  tsWriteSecurityRegister(1,src    ,0 /*offset*/,256);
-  tsWriteSecurityRegister(2,src+256,0 /*offset*/,256);  
+  MUTEXLOCK();
+  WriteSecurityRegister(1,src    ,0 /*offset*/,256);
+  WriteSecurityRegister(2,src+256,0 /*offset*/,256);
+  MUTEXUNLOCK();
+  
   return true;
 }
 
@@ -574,10 +572,9 @@ static blockloc_t __no_inline_not_in_flash_func(GetBlockLoc)(uint unitNum, const
 // Erase the content of all flash chips
 // Note: It takes at least 200 seconds to complete. 
 //
-static void tsEraseContent() {
+static void EraseContent() {
   const uint8_t msg[]= {0x60}; //chip erase comand
   
-  MUTEXLOCK();
   //Start erase flash chip #0
   WriteEnable(DEVICE0);
   enable_spi0(DEVICE0);
@@ -606,14 +603,13 @@ static void tsEraseContent() {
       sleep_ms(10);
     }
   }
-  MUTEXUNLOCK();
 }
 
 ////////////////////////////////////////////////////////////////////
 // Erase one 4kB Sector
 // Note: It takes at least 50ms to complete. 
 //
-static void tsEraseSector(const uint deviceNum, uint32_t address) {
+static void EraseSector(const uint deviceNum, uint32_t address) {
   uint8_t msg[5];
   
   //Make sure it aligns at the begining of a sector 
@@ -625,7 +621,6 @@ static void tsEraseSector(const uint deviceNum, uint32_t address) {
   msg[2] = (uint8_t)(address);  address>>=8;
   msg[1] = (uint8_t)(address);
   
-  MUTEXLOCK();
   WriteEnable(deviceNum);
   enable_spi0(deviceNum);
   spi_write_blocking(spi0, msg, 5);
@@ -636,14 +631,13 @@ static void tsEraseSector(const uint deviceNum, uint32_t address) {
   //Wait until the operation is completed.
   sleep_ms(40); //At least 50ns delay is needed after erase/write command (CS deselect time)
   WaitUntilBusyClear(deviceNum);
-  MUTEXUNLOCK();
 }
 
 ////////////////////////////////////////////////////////////////////
 // Erase one 64-kB Sector
 // Note: It takes at least 150ms to complete. 
 //
-static void tsEraseSector64k(const uint deviceNum, uint32_t address) {
+static void EraseSector64k(const uint deviceNum, uint32_t address) {
   uint8_t msg[5];
   
   //Make sure it aligns at the begining of a sector 
@@ -655,7 +649,6 @@ static void tsEraseSector64k(const uint deviceNum, uint32_t address) {
   msg[2] = (uint8_t)(address);  address>>=8;
   msg[1] = (uint8_t)(address);
   
-  MUTEXLOCK();
   WriteEnable(deviceNum);
   enable_spi0(deviceNum);
   spi_write_blocking(spi0, msg, 5);
@@ -666,18 +659,19 @@ static void tsEraseSector64k(const uint deviceNum, uint32_t address) {
   //Wait until the operation is completed.
   sleep_ms(140); //At least 50ns delay is needed after erase/write command (CS deselect time)
   WaitUntilBusyClear(deviceNum);
-  MUTEXUNLOCK();
 }
   
 
 ////////////////////////////////////////////////////////////////////
 // Erase everything on chip
 //
-void tsEraseEverything() {
-  tsEraseSecurityRegister(1);
-  tsEraseSecurityRegister(2);
-  tsEraseSecurityRegister(3);
-  tsEraseContent();
+void EraseEverything() {
+  MUTEXLOCK();
+  EraseSecurityRegister(1);
+  EraseSecurityRegister(2);
+  EraseSecurityRegister(3);
+  EraseContent();
+  MUTEXUNLOCK();
 }
 
   
@@ -688,7 +682,7 @@ void tsEraseEverything() {
 //
 // Output: CRC32 of the block data
 //
-static uint32_t __no_inline_not_in_flash_func(tsReadOneBlock)(const blockloc_t blockLoc, uint8_t* dest) { 
+static uint32_t __no_inline_not_in_flash_func(ReadOneBlock)(const blockloc_t blockLoc, uint8_t* dest) { 
   uint32_t blockAddress = blockLoc.blockAddress;
   
   //The lowest 9 bits of blockAddress should be 0.
@@ -702,12 +696,10 @@ static uint32_t __no_inline_not_in_flash_func(tsReadOneBlock)(const blockloc_t b
   msg[1] = (uint8_t)(blockAddress);
   msg[5] = 0;   //Dummy 8-bit
   
-  MUTEXLOCK();
   enable_spi0(blockLoc.deviceNum);
   spi_write_blocking(spi0, msg, 6);
   uint32_t crc=ReadFromFlashByDMA(dest,BLOCKSIZE);
   disable_spi0();
-  MUTEXUNLOCK();
   
   return crc;
 }
@@ -721,7 +713,7 @@ static uint32_t __no_inline_not_in_flash_func(tsReadOneBlock)(const blockloc_t b
 // Output: CRC32 of the sector data
 //
 // todo: Add destBuffer
-static uint32_t __no_inline_not_in_flash_func(tsReadSector)(const uint deviceNum,uint32_t sectorAddress){
+static uint32_t __no_inline_not_in_flash_func(ReadSector)(const uint deviceNum,uint32_t sectorAddress){
   uint8_t msg[6];
   
   //Make sure it aligns at the begining of a sector
@@ -734,12 +726,10 @@ static uint32_t __no_inline_not_in_flash_func(tsReadSector)(const uint deviceNum
   msg[1] = (uint8_t)(sectorAddress);
   msg[5] = 0;   //Dummy 8-bit
   
-  MUTEXLOCK();
   enable_spi0(deviceNum);
   spi_write_blocking(spi0, msg, 6);
   uint32_t crc=ReadFromFlashByDMA(sectorBuffer,SECTORSIZE);
   disable_spi0();
-  MUTEXUNLOCK();
   
   return crc;
 }
@@ -749,7 +739,7 @@ static uint32_t __no_inline_not_in_flash_func(tsReadSector)(const uint deviceNum
 //
 // Input: Device Number, Page Address, Pointer to Source Data (256 Bytes Buffer)
 //
-static void __no_inline_not_in_flash_func(tsProgramOnePage)(const uint deviceNum,uint32_t pageAddress,const uint8_t* src) {
+static void __no_inline_not_in_flash_func(ProgramOnePage)(const uint deviceNum,uint32_t pageAddress,const uint8_t* src) {
   //The lowest 8 bits of pageAddress should be 0.
   assert( (pageAddress & 0xff) == 0);
 
@@ -760,7 +750,6 @@ static void __no_inline_not_in_flash_func(tsProgramOnePage)(const uint deviceNum
   msg[2] = (uint8_t)(pageAddress);  pageAddress>>=8;
   msg[1] = (uint8_t)(pageAddress);
   
-  MUTEXLOCK();
   WriteEnable(deviceNum);
   enable_spi0(deviceNum);
   spi_write_blocking(spi0, msg, 5);
@@ -771,7 +760,6 @@ static void __no_inline_not_in_flash_func(tsProgramOnePage)(const uint deviceNum
   //It takes about 0.7-3.5ms
   busy_wait_us_32(300); //At least 50ns delay is needed after erase/write command (CS deselect time)
   WaitUntilBusyClear(deviceNum);
-  MUTEXUNLOCK();
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -849,16 +837,15 @@ static bool __no_inline_not_in_flash_func(IsEmptyPage)(const uint8_t* srcBuffer)
 // Note:
 // CRC32 Checksum of 4kB sector filled with 0xff = 0xf154670a
 // 
-static bool tsIsSector64kErased(const uint deviceNum, uint32_t address) {
+static bool IsSector64kErased(const uint deviceNum, uint32_t address) {
   assert( (address&0xffff)==0);
   bool retValue = false; //Assume false (Not erased)
   
   //64kB = 16 4kB-Sector
   //Check each 4kB-sector one by one
-  MUTEXLOCK();
   for(uint i=0;i<16;++i) {
     //Read one 4kB Sector
-    uint32_t crc32=tsReadSector(deviceNum, address);
+    uint32_t crc32=ReadSector(deviceNum, address);
     if (crc32 != 0xf154670a) {
       //Checksum not match. It is not erased.
       retValue = false;
@@ -879,7 +866,6 @@ static bool tsIsSector64kErased(const uint deviceNum, uint32_t address) {
   retValue = true;
   
 exit:  
-  MUTEXUNLOCK();
   return retValue;
 }
 
@@ -892,13 +878,10 @@ exit:
 //
 // Output: true if write operation is successful
 //
-static bool __no_inline_not_in_flash_func(tsWriteOneBlockWithErase)(const blockloc_t blockLoc, const uint8_t* srcBuffer) {
-  //Mutex Lock is needed because Memory DMA is not thread-safe.
-  MUTEXLOCK();  
-  
+static bool __no_inline_not_in_flash_func(WriteOneBlockWithErase)(const blockloc_t blockLoc, const uint8_t* srcBuffer) {
   //
   //Step 1: Read the entire 4kB sector to sectorBuffer
-  tsReadSector(blockLoc.deviceNum, blockLoc.blockAddress); 
+  ReadSector(blockLoc.deviceNum, blockLoc.blockAddress); 
   
   //
   //Step 2: Copy data to be written to sectorBuffer in Background by DMA
@@ -907,7 +890,7 @@ static bool __no_inline_not_in_flash_func(tsWriteOneBlockWithErase)(const blockl
   
   //
   //Step 3: Erase entire sector in flash while data is being copied by DMA
-  tsEraseSector(blockLoc.deviceNum, blockLoc.blockAddress);
+  EraseSector(blockLoc.deviceNum, blockLoc.blockAddress);
   DMAWaitFinish();    //make sure step 2 is complete    
   
   //
@@ -921,7 +904,7 @@ static bool __no_inline_not_in_flash_func(tsWriteOneBlockWithErase)(const blockl
   uint8_t* srcData = sectorBuffer;
   for(uint i=PAGEPERSECTOR;i!=0;--i) {      
     if (!IsEmptyPage(srcData)) {
-      tsProgramOnePage(blockLoc.deviceNum, currentAddress, srcData);
+      ProgramOnePage(blockLoc.deviceNum, currentAddress, srcData);
     }
     currentAddress += PAGESIZE;
     srcData += PAGESIZE;
@@ -931,8 +914,7 @@ static bool __no_inline_not_in_flash_func(tsWriteOneBlockWithErase)(const blockl
   //Step 6: Verify the written data
   DMAWaitFinish();  //make sure step 4 is finished
   uint32_t crc1=GetCRC();
-  uint32_t crc2=tsReadSector(blockLoc.deviceNum, blockLoc.blockAddress); 
-  MUTEXUNLOCK();
+  uint32_t crc2=ReadSector(blockLoc.deviceNum, blockLoc.blockAddress); 
   
   return (crc1==crc2);
 }
@@ -947,10 +929,7 @@ static bool __no_inline_not_in_flash_func(tsWriteOneBlockWithErase)(const blockl
 //
 // Output: true if write operation is successful
 //
-static bool __no_inline_not_in_flash_func(tsWriteOneBlockWithoutErase)(const blockloc_t blockLoc, const uint8_t* srcBuffer) {
-  //Mutex Lock is needed because Memory DMA is not thread-safe.
-  MUTEXLOCK();  
-  
+static bool __no_inline_not_in_flash_func(WriteOneBlockWithoutErase)(const blockloc_t blockLoc, const uint8_t* srcBuffer) {
   //
   //Step 1: Calculate the CRC32 of the data in srcBuffer in Background by DMA
   SetCRC32Seed(GetMemoryDMAChannel(),DEFAULT_CRC32_SEED);
@@ -959,10 +938,10 @@ static bool __no_inline_not_in_flash_func(tsWriteOneBlockWithoutErase)(const blo
   //
   //Step 2: Program the data to flash 
   if (!IsEmptyPage(srcBuffer)) {
-    tsProgramOnePage(blockLoc.deviceNum, blockLoc.blockAddress, srcBuffer);  
+    ProgramOnePage(blockLoc.deviceNum, blockLoc.blockAddress, srcBuffer);  
   }
   if (!IsEmptyPage(srcBuffer+PAGESIZE)) {
-    tsProgramOnePage(blockLoc.deviceNum, blockLoc.blockAddress+PAGESIZE, srcBuffer+PAGESIZE);  
+    ProgramOnePage(blockLoc.deviceNum, blockLoc.blockAddress+PAGESIZE, srcBuffer+PAGESIZE);  
   }
   
   //Step 3: Read the result of step 1
@@ -970,8 +949,7 @@ static bool __no_inline_not_in_flash_func(tsWriteOneBlockWithoutErase)(const blo
   const uint32_t crc1=GetCRC();
   
   //Step 4: Verify the data
-  const uint32_t crc2=tsReadOneBlock(blockLoc, blockBuffer);
-  MUTEXUNLOCK();
+  const uint32_t crc2=ReadOneBlock(blockLoc, blockBuffer);
   
   return (crc1==crc2);
 }
@@ -987,7 +965,7 @@ static bool __no_inline_not_in_flash_func(tsWriteOneBlockWithoutErase)(const blo
 static bool __no_inline_not_in_flash_func(WriteOneBlock)(const blockloc_t blockLoc, const uint8_t* srcBuffer) {
     //
     //Step 1: Read the block from Flash to blockBuffer;
-    tsReadOneBlock(blockLoc, blockBuffer);
+    ReadOneBlock(blockLoc, blockBuffer);
     
     //
     //Step 2: Is the data in flash identical to the data to be written?
@@ -996,11 +974,11 @@ static bool __no_inline_not_in_flash_func(WriteOneBlock)(const blockloc_t blockL
     }
     
     //
-    //Step 3: Dispatch to tsWriteOneBlockWithErase or tsWriteOneBlockWithoutErase
+    //Step 3: Dispatch to WriteOneBlockWithErase or WriteOneBlockWithoutErase
     if (IsEraseNeeded(srcBuffer, blockBuffer)) {  
-      return tsWriteOneBlockWithErase(blockLoc,srcBuffer);
+      return WriteOneBlockWithErase(blockLoc,srcBuffer);
     } else {
-      return tsWriteOneBlockWithoutErase(blockLoc,srcBuffer);   
+      return WriteOneBlockWithoutErase(blockLoc,srcBuffer);   
     }     
 }
 
@@ -1012,7 +990,7 @@ static bool __no_inline_not_in_flash_func(WriteOneBlock)(const blockloc_t blockL
 // Output:
 //   JEDEC ID
 //
-uint32_t tsReadJEDECID(const uint deviceNum) {
+uint32_t ReadJEDECID(const uint deviceNum) {
   //Command + 3 Bytes Result
   uint8_t txbuffer[4]={0x9f}; 
   uint8_t rxbuffer[4];
@@ -1035,7 +1013,7 @@ uint32_t tsReadJEDECID(const uint deviceNum) {
 //
 // Output: Unique 64-bit ID
 //
-uint64_t tsReadUniqueID(const uint deviceNum) {
+uint64_t ReadUniqueID(const uint deviceNum) {
   //2-Bytes Padding + Command + 5 Dummy Bytes + 8-Bytes Result
   uint8_t __attribute__((aligned(8))) txbuffer[16]={0,0,0x4b}; 
   uint8_t __attribute__((aligned(8))) rxbuffer[16]={0,0,0x4b}; 
@@ -1057,8 +1035,8 @@ uint64_t tsReadUniqueID(const uint deviceNum) {
 //
 // Output: Unique 64-bit ID
 //
-uint64_t tsReadUniqueIDDevice0() {
-  return tsReadUniqueID(DEVICE0);
+uint64_t ReadUniqueIDDevice0() {
+  return ReadUniqueID(DEVICE0);
 }
 
 
@@ -1270,7 +1248,7 @@ static void __no_inline_not_in_flash_func(WriteToFlashByDMA)(const uint8_t *srcB
 //
 void InitFlash() {
   //Init Flash chip #0
-  uint32_t id = tsReadJEDECID(DEVICE0);
+  uint32_t id = ReadJEDECID(DEVICE0);
   flashSize0 = ChipIDToCapacity(id);
   unitCountFlash0 = flashSize0 / SIZEPERUNIT_MB;
   if (flashSize0 != 0) {
@@ -1285,7 +1263,7 @@ void InitFlash() {
   }
 
   //Init Flash Chip #1
-  id = tsReadJEDECID(DEVICE1);
+  id = ReadJEDECID(DEVICE1);
   flashSize1 = ChipIDToCapacity(id);
   unitCountFlash1 = flashSize1 / SIZEPERUNIT_MB;
   if (flashSize1 != 0) {
@@ -1422,13 +1400,13 @@ static void __no_inline_not_in_flash_func(CopyBitInversion)(uint8_t* destBuffer,
 //
 // Output: SP_NOERR, SP_IOERR
 //
-rwerror_t __no_inline_not_in_flash_func(tsReadBlockFlash_Public)(const uint unitNum, const uint blockNum, uint8_t* destBuffer) {
+rwerror_t __no_inline_not_in_flash_func(ReadBlockFlash_Public)(const uint unitNum, const uint blockNum, uint8_t* destBuffer) {
 #if BITINVERSION
   const blockloc_t blockLoc = GetBlockLoc(unitNum, blockNum);
   
   MUTEXLOCK();  
   uint8_t __attribute__((aligned(4))) tempReadBuffer[BLOCKSIZE];
-  tsReadOneBlock(blockLoc, tempReadBuffer);
+  ReadOneBlock(blockLoc, tempReadBuffer);
   CopyBitInversion(destBuffer,tempReadBuffer,BLOCKSIZE);
   MUTEXUNLOCK();
   
@@ -1437,7 +1415,7 @@ rwerror_t __no_inline_not_in_flash_func(tsReadBlockFlash_Public)(const uint unit
   const blockloc_t blockLoc = GetBlockLoc(unitNum, blockNum);
 
   MUTEXLOCK();  
-  tsReadOneBlock(blockLoc, destBuffer);
+  ReadOneBlock(blockLoc, destBuffer);
   MUTEXUNLOCK();
   
   return SP_NOERR;
@@ -1455,7 +1433,7 @@ rwerror_t __no_inline_not_in_flash_func(tsReadBlockFlash_Public)(const uint unit
 //
 // Output: SP_NOERR, SP_IOERR
 //
-rwerror_t __no_inline_not_in_flash_func(tsWriteBlockFlash_Public)(const uint unitNum, const uint blockNum, const uint8_t* srcBuffer){
+rwerror_t __no_inline_not_in_flash_func(WriteBlockFlash_Public)(const uint unitNum, const uint blockNum, const uint8_t* srcBuffer){
 #if BITINVERSION  
   const blockloc_t blockLoc = GetBlockLoc(unitNum, blockNum);
   
@@ -1491,7 +1469,7 @@ rwerror_t __no_inline_not_in_flash_func(tsWriteBlockFlash_Public)(const uint uni
 // can be erased. It erases the flash chip in 64kB chunk and does not
 // preserve existing data
 //
-bool tsWriteBlockFlashForImageTransfer_Public(const uint unitNum, const uint blockNum, const uint8_t* srcBuffer){
+bool WriteBlockFlashForImageTransfer_Public(const uint unitNum, const uint blockNum, const uint8_t* srcBuffer){
   bool success;
   const blockloc_t blockLoc = GetBlockLoc(unitNum,blockNum);
 
@@ -1500,8 +1478,8 @@ bool tsWriteBlockFlashForImageTransfer_Public(const uint unitNum, const uint blo
   if (blockNum<8192 && blockNum%16 == 0) {
     assert( (blockLoc.blockAddress&0xffff) == 0);  //Block Address should be 64k-aligned
       
-    if (!tsIsSector64kErased(blockLoc.deviceNum, blockLoc.blockAddress)) {
-      tsEraseSector64k(blockLoc.deviceNum,blockLoc.blockAddress);
+    if (!IsSector64kErased(blockLoc.deviceNum, blockLoc.blockAddress)) {
+      EraseSector64k(blockLoc.deviceNum,blockLoc.blockAddress);
     }
   }
 
@@ -1509,9 +1487,9 @@ bool tsWriteBlockFlashForImageTransfer_Public(const uint unitNum, const uint blo
 #if BITINVERSION  
   uint8_t __attribute__((aligned(4))) tempWriteBuffer[BLOCKSIZE];  
   CopyBitInversion(tempWriteBuffer,srcBuffer,BLOCKSIZE);
-  success = tsWriteOneBlockWithoutErase(blockLoc,tempWriteBuffer);
+  success = WriteOneBlockWithoutErase(blockLoc,tempWriteBuffer);
 #else
-  success = tsWriteOneBlockWithoutErase(blockLoc,srcBuffer);
+  success = WriteOneBlockWithoutErase(blockLoc,srcBuffer);
 #endif  
   MUTEXUNLOCK();
   
@@ -1521,7 +1499,7 @@ bool tsWriteBlockFlashForImageTransfer_Public(const uint unitNum, const uint blo
 //////////////////////////////////////////////////////
 // Abort Erase Flash Disk Process
 //
-// tsEraseFlashDisk() takes up to 2 minutes and it is used
+// EraseFlashDisk() takes up to 2 minutes and it is used
 // by Control Panel. If Apple is reset during the erase,
 // the erase process should be aborted. Otherwise, MegaFlash
 // does not respond any requests from Apple.
@@ -1541,9 +1519,9 @@ void AbortEraseFlashDisk() {
 //
 // Input: Unit Number
 //
-void tsEraseFlashDisk(const uint unitNum){
-  abortEraseFlashDisk = false;
+void EraseFlashDisk(const uint unitNum){
   MUTEXLOCK();
+  abortEraseFlashDisk = false;  //reset the flag
 
   //Erase 64kB sector every 16 blocks and block number <8192
   for(uint blockNum=0;blockNum<8192;blockNum+=16) {
@@ -1551,9 +1529,9 @@ void tsEraseFlashDisk(const uint unitNum){
 
     if (abortEraseFlashDisk) break;
     
-    if (!tsIsSector64kErased(blockLoc.deviceNum, blockLoc.blockAddress)) {
+    if (!IsSector64kErased(blockLoc.deviceNum, blockLoc.blockAddress)) {
       if (abortEraseFlashDisk) break;
-      tsEraseSector64k(blockLoc.deviceNum,blockLoc.blockAddress);
+      EraseSector64k(blockLoc.deviceNum,blockLoc.blockAddress);
     }
   }
   MUTEXUNLOCK();

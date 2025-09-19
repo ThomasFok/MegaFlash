@@ -16,9 +16,6 @@ The RAMDisk is formatted. tsFormatRamdiskOnce() function
 ensure the RAMDisk is formatted once only.
 *******************************************************/
 
-//Use Mutex to make access to RAMDisk thread-safe
-#define USEMUTEX 1
-
 //Smartport DIB ID String padded to 16 bytes long
 #define IDSTR "RAMDISK         "
 #define IDSTRLEN 7
@@ -33,17 +30,21 @@ static bool ramdiskEnabled = false;
 //RAMDisk data
 static uint8_t __attribute__((aligned(4))) ramdisk_data[RAMDISK_SIZE];
 
-//Mutex
-//No need to use recursive mutex since all functions are simple and do not call other another.
-//except FormatRamdiskOnce() function
-#if USEMUTEX
-  auto_init_mutex(ramdiskMutex);
-  #define MUTEXLOCK()   mutex_enter_blocking(&ramdiskMutex)
-  #define MUTEXUNLOCK() mutex_exit(&ramdiskMutex)
-#else
-  #define MUTEXLOCK()   do{}while(0)
-  #define MUTEXUNLOCK() do{}while(0)
-#endif
+/////////////////////////////////////////////////////////////////////
+// Mutex
+//
+// To make RamDisk access thread-safe.
+// Thread-safe is needed because both cores may access to RamDisk at the same
+// time if TFTP is running.
+//
+// The protocol is: all exported functions (non-static functions) which access
+// the RamDisk must be protected by Mutex.
+//
+// No need to use recursive mutex since all functions are simple and do not call other another.
+// except FormatRamdiskOnce() function
+auto_init_mutex(ramdiskMutex);
+#define MUTEXLOCK()   mutex_enter_blocking(&ramdiskMutex)
+#define MUTEXUNLOCK() mutex_exit(&ramdiskMutex)
 
 
 ///////////////////////////////////////
@@ -93,7 +94,7 @@ size_t GetRamdiskSize() {
 //
 // Output: SP_NOERR, SP_IOERR
 //
-rwerror_t tsReadBlockRamdisk(const uint blockNum, uint8_t* destBuffer){
+rwerror_t ReadBlockRamdisk(const uint blockNum, uint8_t* destBuffer){
   //Validate Block Number
   if (blockNum >= GetBlockCountRamdisk()) return SP_IOERR;
   
@@ -113,7 +114,7 @@ rwerror_t tsReadBlockRamdisk(const uint blockNum, uint8_t* destBuffer){
 //
 // Output: SP_NOERR, SP_IOERR
 //
-rwerror_t tsWriteBlockRamdisk(const uint blockNum, const uint8_t* srcBuffer){
+rwerror_t WriteBlockRamdisk(const uint blockNum, const uint8_t* srcBuffer){
   //Validate Block Number
   if (blockNum >= GetBlockCountRamdisk()) return SP_IOERR;
   
@@ -159,7 +160,7 @@ void GetDIBRamdisk(uint8_t *destBuffer) {
 // Erase RAMDisk Quick
 // Clear Block 0-2 so that the RAMDisk looks like unformatted
 //
-void tsEraseRamdiskQuick() {
+void EraseRamdiskQuick() {
   MUTEXLOCK();
   ZeroMemoryAligned(ramdisk_data,BLOCKSIZE*3); //Erase Block 0-2
   MUTEXUNLOCK();
@@ -169,7 +170,7 @@ void tsEraseRamdiskQuick() {
 ////////////////////////////////////////////////////////////////////
 // Erase entire RAMDisk
 //
-void tsEraseRamdisk() {
+void EraseRamdisk() {
   MUTEXLOCK();
   ZeroMemoryAligned(ramdisk_data,RAMDISK_SIZE);
   MUTEXUNLOCK();
@@ -188,7 +189,7 @@ void FormatRamdiskOnce() {
   if (formatted) return;    //Once only
   formatted = true;
   
-  //DONT add mutex lock because FormatUnit will call tsWriteBlockRamdisk()
+  //DONT add mutex lock because FormatUnit will call WriteBlockRamdisk()
   //unless recursive mutex is used.
   FormatUnit(GetRamdiskUnitNum(),GetBlockCountRamdisk(),VOLNAME,VOLNAMELEN);
   //Ignore error from FormatUnit(). Nothing we can do if error occurs

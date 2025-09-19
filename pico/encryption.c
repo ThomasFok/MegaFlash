@@ -23,7 +23,7 @@ static uint64_t GetEncryptionKey() {
   
   if (!keyGenerated) {
     const uint64_t value64 = 0xa384964b31bed649ull; //an arbitrary value
-    const uint64_t uniqueid  = tsReadUniqueIDDevice0();
+    const uint64_t uniqueid  = ReadUniqueIDDevice0();
     
     key = uniqueid ^ value64;
     if (key==0) key = value64; //key cannot be zero.
