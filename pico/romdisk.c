@@ -1,10 +1,9 @@
 #include "pico/stdlib.h"
 #include <string.h>
 #include "defines.h"
-#include "dmamemops.h"
 #include "mediaaccess.h"
 
-
+//Defined in romdisk.s
 extern const uint8_t  romdiskImage[];
 extern const uint32_t romdiskImageLen[];
 
@@ -14,7 +13,6 @@ extern const uint32_t romdiskImageLen[];
 
 //ROMDisk Enable Flag
 static bool romdiskEnabled = false;
-
 
 
 ///////////////////////////////////////
@@ -57,7 +55,9 @@ rwerror_t ReadBlockRomdisk(const uint blockNum, uint8_t* destBuffer){
   //Validate Block Number
   if (blockNum >= GetBlockCountRomdisk()) return SP_IOERR;
   
-  CopyMemoryAligned(destBuffer,romdiskImage+blockNum*BLOCKSIZE,BLOCKSIZE);
+  //No need to use DMA since ROMDisk is for disaster recovery only
+  memcpy(destBuffer,romdiskImage+blockNum*BLOCKSIZE,BLOCKSIZE);
+  
   return SP_NOERR;
 }
 
