@@ -5,6 +5,7 @@
 extern "C" {
 #endif
 
+void InitRamdisk();
 bool GetRamdiskEnabled();
 void EnableRamdisk();
 void DisableRamdisk();
