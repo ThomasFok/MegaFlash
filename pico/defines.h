@@ -11,7 +11,7 @@
 ****************************************************/
 
 #define FIRMWAREVER     0x000A
-#define FIRMWAREVERSTR  "V1.1.6"
+#define FIRMWAREVERSTR  "V1.1.7dev"
 // 0x0000 = V0.1
 // 0x0001 = V0.2   18-Apr-2025
 // 0x0002 = V0.3   05-May-2025
@@ -44,7 +44,7 @@
 #ifdef PICO_RP2040
 #define RAMDISK_SIZE (140*1024)
 #else
-#define RAMDISK_SIZE (400*1024)   /* Free heap is 46k when size =400k */
+#define RAMDISK_SIZE (400*1024)   /* Free heap is 36k when size =400k */
 #endif
 
 //Slinky Size in Bytes

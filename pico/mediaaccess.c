@@ -272,7 +272,7 @@ uint __no_inline_not_in_flash_func(ReadBlock)(const uint unitNum, const uint blo
       goto exit;
       break;
     case TYPE_FLASH:
-      spResult = ReadBlockFlash_Public(mediumUnitNum, blockNum,destBuffer);
+      spResult = ReadBlockFlash(mediumUnitNum, blockNum,destBuffer);
       if (spResult != SP_NOERR) retValue=MFERR_RWERROR;  
       goto exit;
       break;
@@ -332,7 +332,7 @@ uint __no_inline_not_in_flash_func(WriteBlock)(const uint unitNum, const uint bl
       retValue = MFERR_RWERROR;
       goto exit;
     case TYPE_FLASH:
-      spResult = WriteBlockFlash_Public(mediumUnitNum, blockNum, srcBuffer);
+      spResult = WriteBlockFlash(mediumUnitNum, blockNum, srcBuffer);
       if (spResult != SP_NOERR) retValue=MFERR_RWERROR;  
       goto exit;
     case TYPE_RAMDISK:
@@ -392,7 +392,7 @@ bool WriteBlockForImageTransfer(uint unitNum, const uint blockNum, const uint8_t
     //
     //Writer to Flash
     //
-    success = WriteBlockFlashForImageTransfer_Public(mediumUnitNum, blockNum, srcBuffer);
+    success = WriteBlockFlashForImageTransfer(mediumUnitNum, blockNum, srcBuffer);
   }
   else if (type==TYPE_RAMDISK) {
     //

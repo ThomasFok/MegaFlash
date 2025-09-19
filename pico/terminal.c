@@ -122,6 +122,11 @@ static void DeviceInfo() {
   printf("%s",dataBuffer);
 
   //
+  //Heap Usage
+  printf("Total heap = %d\n",GetTotalHeap());
+  printf("Free heap  = %d\n",GetFreeHeap());
+
+  //
   // Parition Information
   //
   PrintAllPartitions();

@@ -249,7 +249,7 @@ static void DoGetDeviceStatus() {
 // Possible Errors:
 //   MFERR_INVALIDUNIT
 // 
-static void __no_inline_not_in_flash_func(DoGetUnitStatus)() {
+static void DoGetUnitStatus() {
   uint unitNum = parameterBuffer[0];
   
   //validate unitNum

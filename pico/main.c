@@ -85,7 +85,7 @@ volatile bool updateNTPNow = false;
 //
 //Use Core 0 to run background task such as TFTP or NTP Time sync
 //
-void __no_inline_not_in_flash_func(core0Loop)() {
+void core0Loop() {
   const uint32_t NEXTUPDATE_SUCCESS = (24*60*60*1000);  //If last NTP update is successful, re-sync in 24hr
   const uint32_t NEXTUPDATE_FAILED  = (5*60*1000);      //If last NTP update failed, try again in 5 min
   absolute_time_t nextUpdateTime;

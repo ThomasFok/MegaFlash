@@ -162,7 +162,7 @@ int xmodemrx(const uint32_t unitNum) {
   const uint OVERHEAD = 4; //2 Packet Order Bytes and 2-Bytes CRC
   const uint PACKETSIZE128 = 128 + OVERHEAD;
   const uint PACKETSIZE1K  = 1024 + OVERHEAD;
-  const uint BUFFERSIZE = PADDING + PACKETSIZE1K;
+  const uint RXBUFFERSIZE = PADDING + PACKETSIZE1K;
   
   enum {
     STATE_BEGIN,    //Sending 'C' to start file transfer
@@ -182,15 +182,9 @@ int xmodemrx(const uint32_t unitNum) {
   uint8_t packetOrderByte = 0;
   verificationErrorCount = 0;
 
-  //allocate buffer
-  #ifdef PICO_RP2040
-  //Stack Size of RP2040 is 2kB only.
-  //So, allocate from heap instead.
-  uint8_t* packet = malloc(BUFFERSIZE);
-  assert(packet);
-  #else
-  uint8_t __attribute__((aligned(4))) packet[BUFFERSIZE];
-  #endif
+  //allocate packet buffer
+  uint8_t* packetBuffer = malloc(RXBUFFERSIZE);
+  assert(packetBuffer);
   
   do {
     switch (state) {
@@ -216,7 +210,7 @@ int xmodemrx(const uint32_t unitNum) {
         break;
         
       case STATE_RECEVIE_PACKET:
-        byteCount = usb_getraw_timeout(packet+PADDING,packetSize,onesecond);
+        byteCount = usb_getraw_timeout(packetBuffer+PADDING,packetSize,onesecond);
         if (byteCount!=packetSize) {
           if (++errorCount>MAXERROR) state=STATE_ABORT;
           else state=STATE_NAK;
@@ -225,7 +219,7 @@ int xmodemrx(const uint32_t unitNum) {
         
         const uint32_t payloadLength = packetSize - OVERHEAD;
         assert(payloadLength%128==0); //should be multiple of 128
-        bool isValid=PacketReceived(packet+PADDING,packetNumber,payloadLength,unitNum,packetOrderByte);
+        bool isValid=PacketReceived(packetBuffer+PADDING,packetNumber,payloadLength,unitNum,packetOrderByte);
         if (isValid) {
           state=STATE_ACK;
           errorCount = 0;
@@ -285,9 +279,9 @@ int xmodemrx(const uint32_t unitNum) {
     }
   }
   
-  #ifdef PICO_RP2040
-  free(packet); //free packet buffer
-  #endif
+  //free packet buffer
+  free(packetBuffer); 
+
   return (state==STATE_COMPLETE)?packetNumber:-1;
 }
 
@@ -430,15 +424,9 @@ int xmodemtx(const uint32_t unitNum, const uint32_t blockCount,enum TxProtocol p
     STATE_ABORT
   } state = STATE_BEGIN;
  
-  //allocate buffer
-  #ifdef PICO_RP2040
-  //Stack Size of RP2040 is 2kB only.
-  //So, allocate from heap instead.
+  //allocate packet buffer
   uint8_t* packetBuffer = malloc(TXBUFFERSIZE);
   assert(packetBuffer);
-  #else
-  uint8_t __attribute__((aligned(4))) packetBuffer[TXBUFFERSIZE];
-  #endif 
  
   //Reset static variable
   SendPacket128(NULL,0,0,0,false); //NULL means reset static variable
@@ -525,9 +513,9 @@ int xmodemtx(const uint32_t unitNum, const uint32_t blockCount,enum TxProtocol p
     usb_discard();
   }
   
-  #ifdef PICO_RP2040
-  free(packetBuffer); //free packet buffer
-  #endif  
+  //free packet buffer
+  free(packetBuffer); 
+
   return (state==STATE_COMPLETE)?packetNumber:-1;
 }
 

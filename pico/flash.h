@@ -33,9 +33,9 @@ void GetDIBFlash(const uint unitNum, uint8_t *destBuffer);
 // All ProDOS blocks must be handled by routines with _Public suffix.
 // Read Bit Inversion note in flash.c file
 //
-rwerror_t ReadBlockFlash_Public(const uint unitNum, const uint blockNum, uint8_t* destBuffer);
-rwerror_t WriteBlockFlash_Public(const uint unitNum, const uint blockNum, const uint8_t* srcBuffer);
-bool WriteBlockFlashForImageTransfer_Public(const uint unitNum, const uint blockNum, const uint8_t* srcBuffer);
+rwerror_t ReadBlockFlash(const uint unitNum, const uint blockNum, uint8_t* destBuffer);
+rwerror_t WriteBlockFlash(const uint unitNum, const uint blockNum, const uint8_t* srcBuffer);
+bool WriteBlockFlashForImageTransfer(const uint unitNum, const uint blockNum, const uint8_t* srcBuffer);
 
 //
 // Erase Flash Disk

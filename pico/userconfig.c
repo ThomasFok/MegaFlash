@@ -52,16 +52,10 @@ static void ReadDecryptConfigFromFlash() {
 //    
 static void EncryptWriteConfigToFlash() {
   TRACE_PRINTF("EncryptWriteConfigToFlash()\n");
-  #ifdef PICO_RP2040  
-  /* To reduce stack memory usage on RP2040, no extra buffer is used */
+
   Encrypt(configBuffer,configBuffer,CONFIGBUFFERSIZE);
   WriteUserConfigBlock(configBuffer);
   Decrypt(configBuffer,configBuffer,CONFIGBUFFERSIZE); //Restore the content of configBuffer
-  #else
-  uint8_t encryptBuffer[CONFIGBUFFERSIZE];  
-  Encrypt(encryptBuffer,configBuffer,CONFIGBUFFERSIZE);
-  WriteUserConfigBlock(encryptBuffer);  
-  #endif
 }
   
   

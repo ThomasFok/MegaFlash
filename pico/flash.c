@@ -16,8 +16,7 @@
 /////////////////////////////////////////////////////////////////////
 // Bit Inversion
 //
-// If BITINVERSION is defined to be 1, all data bits are inverted before
-// they are written to flash.
+// All data bits are inverted before they are written to flash.
 //
 // There are two benefits.
 // 1) On a new flash chip, all data appears to be all zeros. It makes
@@ -29,10 +28,6 @@
 // be bit-inverted before further processing. Similarly, all ProDOS blocks 
 // returned from this module will be bit-inverted.
 //
-// To avoid confusion, all routines with proper handling of bit inversion has a _Public
-// suffix. All other routines should not be exported to other modules.
-//
-#define BITINVERSION 1
 
 
 /////////////////////////////////////////////////////////////////////
@@ -80,7 +75,6 @@ static const uint FLASH_BUSYFLAG = 0b00000001;  //Busy Flash in Flash Status Reg
 
 //Data Buffers
 static uint8_t __attribute__((aligned(4))) sectorBuffer[SECTORSIZE];
-static uint8_t __attribute__((aligned(4))) blockBuffer[BLOCKSIZE]; 
 
 //Number of units (ProDOS drives) on Flash chip
 static uint32_t unitCountFlash0 = 0;
@@ -481,7 +475,7 @@ static void WriteSecurityRegister(const uint32_t regnum,const uint8_t* src,const
 
     //Write the data back
     EraseSecurityRegister(regnum);
-    ProgramSecurityRegister(regnum,buffer,len);    
+    ProgramSecurityRegister(regnum,buffer,256);    
   }
 }
 
@@ -573,7 +567,7 @@ static blockloc_t __no_inline_not_in_flash_func(GetBlockLoc)(uint unitNum, const
 // Note: It takes at least 200 seconds to complete. 
 //
 static void EraseContent() {
-  const uint8_t msg[]= {0x60}; //chip erase comand
+  const uint8_t msg[]= {0x60}; //chip erase command
   
   //Start erase flash chip #0
   WriteEnable(DEVICE0);
@@ -706,14 +700,14 @@ static uint32_t __no_inline_not_in_flash_func(ReadOneBlock)(const blockloc_t blo
 
 
 ////////////////////////////////////////////////////////////////////
-// Read a sector (4kB) to sectorBuffer
+// Read a sector (4kB) to destBuffer
 //
-// Input: Device Number, Sector Address
+// Input: Device Number, Sector Address, Destination Buffer
 //
 // Output: CRC32 of the sector data
 //
 // todo: Add destBuffer
-static uint32_t __no_inline_not_in_flash_func(ReadSector)(const uint deviceNum,uint32_t sectorAddress){
+static uint32_t __no_inline_not_in_flash_func(ReadSector)(const uint deviceNum,uint32_t sectorAddress,uint8_t* destBuffer){
   uint8_t msg[6];
   
   //Make sure it aligns at the begining of a sector
@@ -728,7 +722,7 @@ static uint32_t __no_inline_not_in_flash_func(ReadSector)(const uint deviceNum,u
   
   enable_spi0(deviceNum);
   spi_write_blocking(spi0, msg, 6);
-  uint32_t crc=ReadFromFlashByDMA(sectorBuffer,SECTORSIZE);
+  uint32_t crc=ReadFromFlashByDMA(destBuffer,SECTORSIZE);
   disable_spi0();
   
   return crc;
@@ -845,7 +839,7 @@ static bool IsSector64kErased(const uint deviceNum, uint32_t address) {
   //Check each 4kB-sector one by one
   for(uint i=0;i<16;++i) {
     //Read one 4kB Sector
-    uint32_t crc32=ReadSector(deviceNum, address);
+    uint32_t crc32=ReadSector(deviceNum, address, sectorBuffer);
     if (crc32 != 0xf154670a) {
       //Checksum not match. It is not erased.
       retValue = false;
@@ -881,7 +875,7 @@ exit:
 static bool __no_inline_not_in_flash_func(WriteOneBlockWithErase)(const blockloc_t blockLoc, const uint8_t* srcBuffer) {
   //
   //Step 1: Read the entire 4kB sector to sectorBuffer
-  ReadSector(blockLoc.deviceNum, blockLoc.blockAddress); 
+  ReadSector(blockLoc.deviceNum, blockLoc.blockAddress, sectorBuffer); 
   
   //
   //Step 2: Copy data to be written to sectorBuffer in Background by DMA
@@ -914,7 +908,7 @@ static bool __no_inline_not_in_flash_func(WriteOneBlockWithErase)(const blockloc
   //Step 6: Verify the written data
   DMAWaitFinish();  //make sure step 4 is finished
   uint32_t crc1=GetCRC();
-  uint32_t crc2=ReadSector(blockLoc.deviceNum, blockLoc.blockAddress); 
+  uint32_t crc2=ReadSector(blockLoc.deviceNum, blockLoc.blockAddress, sectorBuffer); 
   
   return (crc1==crc2);
 }
@@ -949,7 +943,7 @@ static bool __no_inline_not_in_flash_func(WriteOneBlockWithoutErase)(const block
   const uint32_t crc1=GetCRC();
   
   //Step 4: Verify the data
-  const uint32_t crc2=ReadOneBlock(blockLoc, blockBuffer);
+  const uint32_t crc2=ReadOneBlock(blockLoc, sectorBuffer); //Use sectorBuffer as temporary buffer
   
   return (crc1==crc2);
 }
@@ -964,18 +958,18 @@ static bool __no_inline_not_in_flash_func(WriteOneBlockWithoutErase)(const block
 //
 static bool __no_inline_not_in_flash_func(WriteOneBlock)(const blockloc_t blockLoc, const uint8_t* srcBuffer) {
     //
-    //Step 1: Read the block from Flash to blockBuffer;
-    ReadOneBlock(blockLoc, blockBuffer);
+    //Step 1: Read the block from Flash to sectorBuffer;
+    ReadOneBlock(blockLoc, sectorBuffer);
     
     //
     //Step 2: Is the data in flash identical to the data to be written?
-    if (VerifyOneBlock(srcBuffer, blockBuffer)) { 
+    if (VerifyOneBlock(srcBuffer, sectorBuffer)) { 
       return true;
     }
     
     //
     //Step 3: Dispatch to WriteOneBlockWithErase or WriteOneBlockWithoutErase
-    if (IsEraseNeeded(srcBuffer, blockBuffer)) {  
+    if (IsEraseNeeded(srcBuffer, sectorBuffer)) {  
       return WriteOneBlockWithErase(blockLoc,srcBuffer);
     } else {
       return WriteOneBlockWithoutErase(blockLoc,srcBuffer);   
@@ -1361,7 +1355,7 @@ void GetDIBFlash(const uint unitNum, uint8_t *destBuffer) {
 
 /////////////////////////////////////////////////////////////////////////////////////////
 //
-//                    Media Access Routine with Bit Inversion 
+//                    Media Access Routines with Bit Inversion 
 //
 /////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1390,7 +1384,6 @@ static void __no_inline_not_in_flash_func(CopyBitInversion)(uint8_t* destBuffer,
 }
 
 
-
 ////////////////////////////////////////////////////////////////////
 // Read Block from Flash
 // Assume unitNum and blockNum are valid.
@@ -1400,29 +1393,16 @@ static void __no_inline_not_in_flash_func(CopyBitInversion)(uint8_t* destBuffer,
 //
 // Output: SP_NOERR, SP_IOERR
 //
-rwerror_t __no_inline_not_in_flash_func(ReadBlockFlash_Public)(const uint unitNum, const uint blockNum, uint8_t* destBuffer) {
-#if BITINVERSION
+rwerror_t __no_inline_not_in_flash_func(ReadBlockFlash)(const uint unitNum, const uint blockNum, uint8_t* destBuffer) {
   const blockloc_t blockLoc = GetBlockLoc(unitNum, blockNum);
   
   MUTEXLOCK();  
-  uint8_t __attribute__((aligned(4))) tempReadBuffer[BLOCKSIZE];
-  ReadOneBlock(blockLoc, tempReadBuffer);
-  CopyBitInversion(destBuffer,tempReadBuffer,BLOCKSIZE);
-  MUTEXUNLOCK();
+  ReadOneBlock(blockLoc, destBuffer);                 //Read from flash
+  CopyBitInversion(destBuffer,destBuffer,BLOCKSIZE);  //Bit invert in-place
+  MUTEXUNLOCK();  
   
   return SP_NOERR; 
-#else
-  const blockloc_t blockLoc = GetBlockLoc(unitNum, blockNum);
-
-  MUTEXLOCK();  
-  ReadOneBlock(blockLoc, destBuffer);
-  MUTEXUNLOCK();
-  
-  return SP_NOERR;
-#endif
-
 }
-
 
 ////////////////////////////////////////////////////////////////////
 // Write Block to Flash
@@ -1433,8 +1413,7 @@ rwerror_t __no_inline_not_in_flash_func(ReadBlockFlash_Public)(const uint unitNu
 //
 // Output: SP_NOERR, SP_IOERR
 //
-rwerror_t __no_inline_not_in_flash_func(WriteBlockFlash_Public)(const uint unitNum, const uint blockNum, const uint8_t* srcBuffer){
-#if BITINVERSION  
+rwerror_t __no_inline_not_in_flash_func(WriteBlockFlash)(const uint unitNum, const uint blockNum, const uint8_t* srcBuffer){
   const blockloc_t blockLoc = GetBlockLoc(unitNum, blockNum);
   
   MUTEXLOCK();   
@@ -1444,16 +1423,6 @@ rwerror_t __no_inline_not_in_flash_func(WriteBlockFlash_Public)(const uint unitN
   MUTEXUNLOCK();
 
   return success? SP_NOERR : SP_IOERR;
-#else
-  const blockloc_t blockLoc = GetBlockLoc(unitNum, blockNum);
- 
-  MUTEXLOCK();  
-  bool success = WriteOneBlock(blockLoc, srcBuffer);
-  MUTEXUNLOCK();
-
-  return success? SP_NOERR : SP_IOERR;
-#endif  
-
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -1469,7 +1438,7 @@ rwerror_t __no_inline_not_in_flash_func(WriteBlockFlash_Public)(const uint unitN
 // can be erased. It erases the flash chip in 64kB chunk and does not
 // preserve existing data
 //
-bool WriteBlockFlashForImageTransfer_Public(const uint unitNum, const uint blockNum, const uint8_t* srcBuffer){
+bool WriteBlockFlashForImageTransfer(const uint unitNum, const uint blockNum, const uint8_t* srcBuffer){
   bool success;
   const blockloc_t blockLoc = GetBlockLoc(unitNum,blockNum);
 
@@ -1483,18 +1452,22 @@ bool WriteBlockFlashForImageTransfer_Public(const uint unitNum, const uint block
     }
   }
 
-  //Program the block
-#if BITINVERSION  
+  //Program the block to flash
   uint8_t __attribute__((aligned(4))) tempWriteBuffer[BLOCKSIZE];  
   CopyBitInversion(tempWriteBuffer,srcBuffer,BLOCKSIZE);
   success = WriteOneBlockWithoutErase(blockLoc,tempWriteBuffer);
-#else
-  success = WriteOneBlockWithoutErase(blockLoc,srcBuffer);
-#endif  
+
   MUTEXUNLOCK();
   
   return success;
 }
+
+/////////////////////////////////////////////////////////////////////////////////////////
+//
+//                    Erase Flash Disk Routines
+//
+/////////////////////////////////////////////////////////////////////////////////////////
+
 
 //////////////////////////////////////////////////////
 // Abort Erase Flash Disk Process

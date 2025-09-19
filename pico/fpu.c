@@ -365,7 +365,7 @@ uint8_t __no_inline_not_in_flash_func(RoundFAC)(uint8_t *dataBuffer) {
 //
 // Input: Pointer to data buffer
 //
-void __no_inline_not_in_flash_func(fadd)(uint8_t *dataBuffer) {
+void fadd(uint8_t *dataBuffer) {
   LoadFAC_ARG(dataBuffer);
   result.d = arg.d + fac.d;
   DEBUG_PRINT_ALL("fadd"); 
