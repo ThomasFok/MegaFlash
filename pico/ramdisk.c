@@ -179,7 +179,6 @@ rwerror_t ReadBlockRamdisk(const uint blockNum, uint8_t* destBuffer){
   if (blockNum >= GetBlockCountRamdisk()) return SP_IOERR;
   
   MUTEXLOCK();
-  //CopyMemoryAligned(destBuffer,ramdisk_data+blockNum*BLOCKSIZE,BLOCKSIZE);
   RamdiskCopyMemory(destBuffer,ramdisk_data+blockNum*BLOCKSIZE,BLOCKSIZE);
   MUTEXUNLOCK();
   
@@ -200,7 +199,6 @@ rwerror_t WriteBlockRamdisk(const uint blockNum, const uint8_t* srcBuffer){
   if (blockNum >= GetBlockCountRamdisk()) return SP_IOERR;
   
   MUTEXLOCK();
-  //CopyMemoryAligned(ramdisk_data+blockNum*BLOCKSIZE,srcBuffer,BLOCKSIZE);
   RamdiskCopyMemory(ramdisk_data+blockNum*BLOCKSIZE,srcBuffer,BLOCKSIZE);
   MUTEXUNLOCK();
   
@@ -244,7 +242,6 @@ void GetDIBRamdisk(uint8_t *destBuffer) {
 //
 void EraseRamdiskQuick() {
   MUTEXLOCK();
-  //ZeroMemoryAligned(ramdisk_data,BLOCKSIZE*3); //Erase Block 0-2
   RamdiskZeroMemory(ramdisk_data,BLOCKSIZE*3); //Erase Block 0-2
   MUTEXUNLOCK();
 }
@@ -255,7 +252,6 @@ void EraseRamdiskQuick() {
 //
 void EraseRamdisk() {
   MUTEXLOCK();
-  //ZeroMemoryAligned(ramdisk_data,RAMDISK_SIZE);
   RamdiskZeroMemory(ramdisk_data,RAMDISK_SIZE);
   MUTEXUNLOCK();
 }
