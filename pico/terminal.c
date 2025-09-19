@@ -123,8 +123,8 @@ static void DeviceInfo() {
 
   //
   //Heap Usage
-  printf("Total heap = %d\n",GetTotalHeap());
-  printf("Free heap  = %d\n",GetFreeHeap());
+  //
+  printf("Free/Total heap = %d/%d\n",GetFreeHeap(),GetTotalHeap());
 
   //
   // Parition Information
