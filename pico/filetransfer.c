@@ -287,7 +287,7 @@ int xmodemrx(const uint32_t unitNum) {
 
 //PC -> MegaFlash
 void Upload(const uint32_t unitNum) {
-  printf("\nYou are ready to upload ProDOS image file to drive %d.\n",unitNum);
+  printf("\nYou are ready to upload ProDOS ordered image file (.po/.hdv) to drive %d.\n",unitNum);
   printf("Please start upload using XModem-1k or XModem/CRC protocol\n");
   printf("within 90 seconds. Type Ctrl-C to abort.\n");
   
@@ -522,7 +522,7 @@ int xmodemtx(const uint32_t unitNum, const uint32_t blockCount,enum TxProtocol p
 
 
 void Download(const uint32_t unitNum,enum TxProtocol protocol) { 
-  printf("\nYou are ready to download ProDOS image file (.po) from drive %d.\n",unitNum);
+  printf("\nYou are ready to download ProDOS image file (.po/.hdv) from drive %d.\n",unitNum);
   printf("Please start download using %s protocol within 90 seconds.\n",protocol==XMODEM128?"XModem/CRC":"XModem-1k");
   printf("Type Ctrl-C to abort.\n");
   

@@ -176,8 +176,8 @@ static void UploadImage() {
   printf("Upload ProDOS Image\n");
   printf("===================\n\n");
   
-  printf("A ProDOS order disk image (.po/.hdv) can be uploaded to MegaFlash and\n");
-  printf("written to a drive with XMODEM-CRC protocol.\n");
+  printf("A ProDOS ordered disk image (.po/.hdv) can be uploaded to MegaFlash and\n");
+  printf("written to a drive with XMODEM-CRC or XMODEM-1k protocol.\n");
 
   
   PrintAllPartitions();
@@ -198,7 +198,10 @@ static void UploadImage() {
 
 static void DownloadImage() {
   printf("Download ProDOS Image\n");
-  printf("=====================\n");
+  printf("=====================\n\n");
+  
+  printf("The content of a drive in MegaFlash can be downloaded to PC and be saved\n");
+  printf("as a ProDOS ordered disk image file (.po/.hdv).\n");
   
   PrintAllPartitions();
   putchar('\n');
