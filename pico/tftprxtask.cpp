@@ -453,7 +453,7 @@ void CTFTPRXTask::EvtTimeout(uint32_t arg){
 // Retry Method
 //
 // Send the last packet again.
-// If hadCompleted is set, send the last ACK Packet one more
+// If hasCompleted is set, send the last ACK Packet one more
 // time and then stop
 //
 void CTFTPRXTask::Retry() {
