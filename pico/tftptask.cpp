@@ -175,7 +175,15 @@ void CTFTPTask::AddBinaryData(const uint8_t *data,const uint32_t len) {
   assert(txpacketlen<=TXBUFFERSIZE);
 }
 
-
+//
+//Usage Example:
+//
+//  DEBUG_PRINTF("Adding options\n");
+//  AddOption("blksize","1024");
+//  AddOption("tsize","65536");
+//  strcpy((char*)txbuffer+txpacketlen,"test");
+//  txpacketlen+=5;
+//
 
 ////////////////////////////////////////////////////////////////////
 // Parse Option for processing of OACK packet
@@ -202,7 +210,7 @@ bool CTFTPTask::ParseOption(const uint8_t *buffer, const size_t len, size_t *cur
   //End of data?
   if (*currentPos >= len) return false;
 
-  //Searching from currentPos for two NULL tftp_state.blockTransferreds
+  //Searching from currentPos for two NULL
   for (size_t i=*currentPos;i<len;++i) {
     if (buffer[i]=='\0') {
       if (firstNullPos==-1) firstNullPos=i;
@@ -222,16 +230,6 @@ bool CTFTPTask::ParseOption(const uint8_t *buffer, const size_t len, size_t *cur
     return false;
   }
 }
-
-//Example:
-  #if 0
-  DEBUG_PRINTF("Adding options\n");
-  AddOption("blksize","1024");
-  AddOption("tsize","65536");
-  strcpy((char*)txbuffer+txpacketlen,"test");
-  txpacketlen+=5;
-  #endif
-
 
 
 //////////////////////////////////////////////////////////
