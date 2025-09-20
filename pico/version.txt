@@ -3,6 +3,7 @@ Pico Firmware
 - Refactor flash.c and mediaaccess.c source code
 - Source code clean up to reduce memory usage
 - Improved some prompt messages in XModem Transfer
+- RAM Disk has its own dedicated DMA channel
 
 Apple Firmware
 - No changes (V1.0)
