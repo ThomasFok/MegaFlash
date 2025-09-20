@@ -1,6 +1,15 @@
+Version 1.1.7 20-Sep-2025
+Pico Firmware
+- Refactor flash.c and mediaaccess.c source code
+- Source code clean up to reduce memory usage
+- Improved some prompt messages in XModem Transfer
+
+Apple Firmware
+- No changes (V1.0)
+
 Version 1.1.6 09-Sep-2025
 Pico Firmware
-- Optimize the timing of RP2350 PIO for compatibility with slower GAL16V8
+- Optimized the timing of RP2350 PIO for compatibility with slower GAL16V8
 
 Apple Firmware
 - No changes (V1.0)
