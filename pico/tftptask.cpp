@@ -210,7 +210,7 @@ bool CTFTPTask::ParseOption(const uint8_t *buffer, const size_t len, size_t *cur
   //End of data?
   if (*currentPos >= len) return false;
 
-  //Searching from currentPos for two NULL
+  //Searching from currentPos for two null characters
   for (size_t i=*currentPos;i<len;++i) {
     if (buffer[i]=='\0') {
       if (firstNullPos==-1) firstNullPos=i;
