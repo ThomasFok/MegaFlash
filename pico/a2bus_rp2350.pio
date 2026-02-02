@@ -24,7 +24,7 @@
 ; MegaFlash and relay the message to CPU.
 
 ; The second one, a2bus, fulfills the read request from 6502. It reads the lowest 4-bit of
-; address bus and send the corresponding right to 6502.
+; address bus and send the corresponding data to 6502.
 
 
 ; Pin Allocations
