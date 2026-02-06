@@ -95,8 +95,8 @@ CUDPTask::~CUDPTask() {
     cyw43_arch_disable_sta_mode();
     cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN,0); //Turn off LED
     
-    //CYW43 Library will go crazy if we try to connect continuously
-    //deinit than init the library seems to fix the problem
+    //CYW43 Library will go crazy if we keep on connecting and disconnecting WIFI
+    //deinit then re-init the library seems to fix the problem.
      cyw43_arch_deinit();    
   }
 }
