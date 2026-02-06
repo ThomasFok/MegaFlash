@@ -97,7 +97,7 @@ CUDPTask::~CUDPTask() {
     
     //CYW43 Library will go crazy if we keep on connecting and disconnecting WIFI
     //deinit then re-init the library seems to fix the problem.
-     cyw43_arch_deinit();    
+    cyw43_arch_deinit();    
   }
 }
 
