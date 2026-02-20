@@ -4,7 +4,6 @@
 ; Ver 3.1 - Try to pull regvalue from FIFO again before outputting data
 ;
 ; Ver 3.2 - Support system clock >125MHz
-;         - IRQ0 as a flag to indicate a pending bus operation
 ;
 ;
 ; The usual implementation is that the PIO program informs the CPU when 6502 

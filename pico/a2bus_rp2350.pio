@@ -3,7 +3,10 @@
 ;
 ; Ver 3.1 - Try to pull regvalue from FIFO again before outputting data
 ;
+; Ver 3.2 - Support system clock >125MHz
+;
 ; Ver 4.0 - Complete rewrite for RP2350
+;         - IRQ0 as a flag to indicate a pending bus operation
 ;
 ; Ver 4.1 - Adjust delay for slower GAL16V8 and 74HC138 Address Decoder
 ;

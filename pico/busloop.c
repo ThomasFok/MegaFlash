@@ -90,7 +90,6 @@ void __no_inline_not_in_flash_func(BusLoopDataInit)() {
 }
 
 void __no_inline_not_in_flash_func(BusLoop)() {
-  const uint SM0 = 0;   //State Machine 0 for $C0C0-$C0C3 registers 
   const uint READFLAG = (1<<4); //Read flag is at bit 4
 
   while(true) {
