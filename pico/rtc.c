@@ -113,7 +113,7 @@ void GetProdosTimestamp(uint8_t *timestamp) {
 //
 // Input: Pointer to struct tm
 //
-void PrintDateTime(struct tm *t) {
+static void PrintDateTime(struct tm *t) {
   const size_t BUFFERLEN = 40;
   char buffer[BUFFERLEN];
   strftime(buffer,BUFFERLEN,"%F %T",t); 
