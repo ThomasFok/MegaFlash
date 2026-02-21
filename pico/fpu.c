@@ -122,7 +122,7 @@ double_ui64 fac, arg, result;
 //
 // Input: Pointer to data buffer
 //
-void __no_inline_not_in_flash_func(LoadFAC)(uint8_t *data) {
+static void __no_inline_not_in_flash_func(LoadFAC)(uint8_t *data) {
   //
   //Convert FAC
   //
@@ -176,7 +176,7 @@ void __no_inline_not_in_flash_func(LoadFAC)(uint8_t *data) {
 //
 // Input: Pointer to data buffer
 //
-void __no_inline_not_in_flash_func(LoadARG)(uint8_t *data) {
+static void __no_inline_not_in_flash_func(LoadARG)(uint8_t *data) {
   //
   //Convert ARG
   //
@@ -219,7 +219,7 @@ void __no_inline_not_in_flash_func(LoadARG)(uint8_t *data) {
 //
 // Input: Pointer to data buffer
 //
-void __no_inline_not_in_flash_func(LoadFAC_ARG)(uint8_t *data) {
+static void __no_inline_not_in_flash_func(LoadFAC_ARG)(uint8_t *data) {
   LoadFAC(data);
   LoadARG(data);
 }
@@ -230,7 +230,7 @@ void __no_inline_not_in_flash_func(LoadFAC_ARG)(uint8_t *data) {
 //
 // Input: Pointer to data buffer
 //
-void __no_inline_not_in_flash_func(StoreResult)(uint8_t *dest) {
+static void __no_inline_not_in_flash_func(StoreResult)(uint8_t *dest) {
   //Clear Error Flag
   dest[RESERROR] = 0;
 
@@ -312,7 +312,7 @@ void __no_inline_not_in_flash_func(StoreResult)(uint8_t *dest) {
 // 4) If there is carry, add one to FAC.EXP and shift mantissa right
 // 5) If FAC.EXP overflow, show OVERFLOW ERROR
 //
-uint8_t __no_inline_not_in_flash_func(RoundFAC)(uint8_t *dataBuffer) {
+static uint8_t __no_inline_not_in_flash_func(RoundFAC)(uint8_t *dataBuffer) {
   //Do nothing if FAC Ext MSB is 0
   if ((dataBuffer[FACEXT]&0x80)==0) {
     return 0; //No Error
@@ -373,7 +373,7 @@ void fadd(uint8_t *dataBuffer) {
 }
 
 /////////////////////////////////////////////////////////////
-// FADD - ARG * FAC
+// FMUL - ARG * FAC
 //
 // Input: Pointer to data buffer
 //
@@ -504,7 +504,7 @@ void ftan(uint8_t *dataBuffer) {
 }
 
 /////////////////////////////////////////////////////////////
-// FTAN - atan(fac)
+// FATN - atan(fac)
 //
 // Input: Pointer to data buffer
 //
@@ -570,7 +570,7 @@ void fsqr(uint8_t *dataBuffer) {
 // No need to consider underflow/overflow problem.
 // Since the range of double covers the entire range of MBF.
 // So, the number must be valid and printable.
-int __no_inline_not_in_flash_func(formatApplesoftString)(double d, char* buf) {
+static int __no_inline_not_in_flash_func(formatApplesoftString)(double d, char* buf) {
   //Limit the output of snprintf to a reasonable length
   const size_t BUFFERSIZE = 20; 
   
