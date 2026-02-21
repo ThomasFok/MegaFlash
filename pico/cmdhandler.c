@@ -1238,7 +1238,7 @@ extern volatile tftp_state_t tftp_state;
 //   hostname   - hostname string
 //   filename   - filename string
 //
-void DoTFTPRun() {
+static void DoTFTPRun() {
   const uint32_t TIMEOUT_MS = 30*1000; //30 Seconds. 
   
   //Assume no error
@@ -1357,7 +1357,7 @@ exit:
 //    Error Message
 //
 // Note: Block Transferred can be 65536. So, it is a 32-bit integer
-void DoTFTPStatus() {
+static void DoTFTPStatus() {
   ClearError(); //Assume no error
   
   //Only PicoW has network function
