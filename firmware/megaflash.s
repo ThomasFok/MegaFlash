@@ -828,7 +828,7 @@ writeoneblock:  lda #CMD_MODEINTERLEAVED        ;switch to interleaved mode, res
 
                 ;Read spIOPointer to registers before copying program code to zero page because
                 ;they can be at the same memory address. Copying the code may destroy spIOPointer
-                lda spIOPointer         ;x=spIOPointer
+                lda spIOPointer         ;a=spIOPointer
                 ldx spIOPointer+1       ;read spIOPointer+1
                 phx                     ;stack = spIOPointer+1
 
