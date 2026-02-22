@@ -698,19 +698,12 @@ writeblock:
 ;
 ;           4MHz          4MHz           1MHz
 ;           (First run)   (Second run)
-;RAM-Based  3772          3094           7130
-;ROM-Based  6464          6381           7162
+;RAM-Based  3691          3190           7119
+;ROM-Based  6513          6407           7194
 ;
 ;Second run is faster because of the cache
 ;
-;On a 1MHz machine (e.g. Apple IIc), RAM-Based implementation
-;is actually slightly slower. But RAM-based implementation is
-;used even on Apple IIc build of firmware because
-;1) Both versions use the same implementation. Easier to track
-;bugs or problems.
-;2) Some users may have ZIP chips installed. The RAM-based 
-;implementation is beneficial to them.
-;
+;The RAM-Based routine is faster in all circumstances
 ;*****************************************************************
 
 
@@ -748,17 +741,17 @@ readoneblock:
                 ;Read spIOPointer before copying program code to zero page because
                 ;they can be at the same memory address. Copying the code may
                 ;destroy spIOPointer
-                ldx spIOPointer         ;x=spIOPointer
-                lda spIOPointer+1       ;read spIOPointer+1
-                pha                     ;stack = spIOPointer+1
+                lda spIOPointer         ;a=spIOPointer
+                ldx spIOPointer+1       ;read spIOPointer+1
+                phx                     ;stack = spIOPointer+1
                 
                 ;save the original content and copy the data transfer routine rdramcode to zeropage
                 stz cmdreg              ;Reset Buffer Pointers        
                 ldy #RDRAMCODELEN             
-:               lda ramcodeloc-1,y
-                sta paramreg
-                lda rdramcode-1,y
-                sta ramcodeloc-1,y
+:               ldx ramcodeloc-1,y
+                stx paramreg
+                ldx rdramcode-1,y
+                stx ramcodeloc-1,y
                 dey
                 bne :-
                 ;y=0 now. ramcodeexec expects y=0
@@ -767,8 +760,8 @@ readoneblock:
                 stz cmdreg              
                 
                 ;self modifying code, update the operands of sta instructions
-                stx ramcodeloc+4        ;x=spIOPointer
-                stx ramcodeloc+10
+                sta ramcodeloc+4        ;a=spIOPointer
+                sta ramcodeloc+10
                 pla                     ;pull spIOPointer+1 from stack
                 sta ramcodeloc+5
                 inc a                   ;upper page
@@ -779,10 +772,10 @@ exec_restore:
 
                 ;restore the original content of zero page
                 ;parameter pointer has been reset
-                ldy #RDRAMCODELEN
+                ldx #RDRAMCODELEN
 :               lda paramreg       
-                sta ramcodeloc-1,y   
-                dey                
+                sta ramcodeloc-1,x   
+                dex                
                 bne :-           
                 
                 lda #CMD_MODELINEAR     ;Restore to linear mode
@@ -835,17 +828,17 @@ writeoneblock:  lda #CMD_MODEINTERLEAVED        ;switch to interleaved mode, res
 
                 ;Read spIOPointer to registers before copying program code to zero page because
                 ;they can be at the same memory address. Copying the code may destroy spIOPointer
-                ldx spIOPointer         ;x=spIOPointer
-                lda spIOPointer+1       ;read spIOPointer+1
-                pha                     ;stack = spIOPointer+1
+                lda spIOPointer         ;x=spIOPointer
+                ldx spIOPointer+1       ;read spIOPointer+1
+                phx                     ;stack = spIOPointer+1
 
                 ;save the original content and copy the data transfer routine wrramcode to zeropage
                 stz cmdreg              ;Reset Buffer Pointer
                 ldy #WRRAMCODELEN
-:               lda ramcodeloc-1,y
-                sta paramreg
-                lda wrramcode-1,y
-                sta ramcodeloc-1,y
+:               ldx ramcodeloc-1,y
+                stx paramreg
+                ldx wrramcode-1,y
+                stx ramcodeloc-1,y
                 dey
                 bne :-
                 ;y=0 now. ramcodeexec expects y=0
@@ -854,8 +847,8 @@ writeoneblock:  lda #CMD_MODEINTERLEAVED        ;switch to interleaved mode, res
                 stz cmdreg                     
                 
                 ;self modifying code, update the operands of lda instructions
-                stx ramcodeloc+1        ;x=spIOPointer
-                stx ramcodeloc+7
+                sta ramcodeloc+1        ;a=spIOPointer
+                sta ramcodeloc+7
                 pla                     ;pull spIOPointer+1 from stack 
                 sta ramcodeloc+2
                 inc a                   ;upper page
