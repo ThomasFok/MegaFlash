@@ -247,20 +247,26 @@ nomf:
                 stz toshowbootmenu      ;Clear the MSB of toshowbootmenu
       
                 jsr copybm              ;Copy Boot Menu code to RAM
-                lda #.LOBYTE(BMRUN)     ;Execute Boot Menu
-                ldy #.HIBYTE(BMRUN)     ;
-                bra swjmp_ay            ;
+                lda #.LOBYTE(BMRUN-1)   ;Execute Boot Menu
+                ldy #.HIBYTE(BMRUN-1)   ;
+                bra swjmp               ;
 
 nobootmenu:     ;exit here
                 ;The original code at $BF19 is jmp($0000)
+                ;Since this routine is in aux ROM bank,
+                ;We cannot execute jmp($0000) directly.
+                ;Use RTS instruction to jmp to the destination
 
-                ;Load ($0000) to A and Y
+                ;Load ($0000)-1 to A and Y
                 ldy $01         ;Y=High Byte
                 lda $00         ;A=Low Byte              
-                ;fall into swjmp_ay
+                bne :+          ;If not 0, dec low byte only
+                dey             ;Dec High Byte
+:               dec             ;Dec Low Byte
+                ;fall into swjmp
                 
 ;----------------------------------------------------------
-;JMP to Bank 0 address (AY)
+;JMP to Bank 0 address
 ;After coldstartinit, we need to jump back to main bank
 ;to start boot sequence or Boot Menu. This routine
 ;Reset stack pointer.
@@ -268,16 +274,11 @@ nobootmenu:     ;exit here
 ;Jump to swrts to Switch bank, then use RTS instruction
 ;to jump to the destination
 ;
-; Input: A = Low byte of destination Address
-;        Y = High byte of destination Address
+; Input: A = Low byte of destination Address-1
+;        Y = High byte of destination Address-1
 ;
 ;                
-swjmp_ay:              
-                tax             ;Test if A(Low Byte)=0
-                bne :+          ;If not 0, dec low byte only
-                dey             ;Dec High Byte
-:               dec             ;Dec Low Byte
-                ldx #$ff        ;Reset Stack Pointer
+swjmp:          ldx #$ff        ;Reset Stack Pointer
                 txs             ;
                 phy             ;Push High Byte
                 pha             ;Push Low Byte
