@@ -145,9 +145,6 @@ bmloc:                                  ;Physical Address of boot menu in ROM
 counter         := $03                  ;Use $03-04 as counter
 mfexist         := $05                  ;=0 if megaflash exist
 
-                ;coldstartinit, which is in aux bank, jumps to BMRUN.
-                ;switch to main bank
-                sta rombank
 
 bmstart:        
                 jsr appleii             ;Clear Screen and Show Apple IIc

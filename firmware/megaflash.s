@@ -247,7 +247,9 @@ nomf:
                 stz toshowbootmenu      ;Clear the MSB of toshowbootmenu
       
                 jsr copybm              ;Copy Boot Menu code to RAM
-                jmp BMRUN               ;Execute Boot Menu
+                lda #.LOBYTE(BMRUN)     ;Execute Boot Menu
+                ldy #.HIBYTE(BMRUN)     ;
+                bra swjmp_ay            ;
 
 nobootmenu:     ;exit here
                 ;The original code at $BF19 is jmp($0000)
