@@ -756,9 +756,6 @@ readoneblock:
                 bne :-
                 ;y=0 now. ramcodeexec expects y=0
                 
-                ;Reset Parameter Buffer pointer for restoring the content below               
-                stz cmdreg              
-                
                 ;self modifying code, update the operands of sta instructions
                 sta ramcodeloc+4        ;a=spIOPointer
                 sta ramcodeloc+10
@@ -768,7 +765,11 @@ readoneblock:
                 sta ramcodeloc+11
 
 exec_restore:                
-                jsr ramcodeexec         ;Switch to LC and execute the code
+                ;Reset Parameter Buffer pointer, ready for restoring the content below               
+                stz cmdreg                   
+                
+                ;Switch to LC and execute the code
+                jsr ramcodeexec         
 
                 ;restore the original content of zero page
                 ;parameter pointer has been reset
@@ -843,9 +844,6 @@ writeoneblock:  lda #CMD_MODEINTERLEAVED        ;switch to interleaved mode, res
                 bne :-
                 ;y=0 now. ramcodeexec expects y=0
                 
-                ;Reset Parameter Buffer pointer for restoring the content below         
-                stz cmdreg                     
-                
                 ;self modifying code, update the operands of lda instructions
                 sta ramcodeloc+1        ;a=spIOPointer
                 sta ramcodeloc+7
@@ -860,18 +858,22 @@ writeoneblock:  lda #CMD_MODEINTERLEAVED        ;switch to interleaved mode, res
                 bra exec_restore
  ;-----
 .if 0               
-                jsr ramcodeexec         ;Switch to LC and execute the code
-                     
+                ;Reset Parameter Buffer pointer, ready for restoring the content below               
+                stz cmdreg                   
+                
+                ;Switch to LC and execute the code
+                jsr ramcodeexec         
+
                 ;restore the original content of zero page
                 ;parameter pointer has been reset
-                ldy #WRRAMCODELEN
+                ldx WRRAMCODELEN
 :               lda paramreg       
-                sta ramcodeloc-1,y   
-                dey                
-                bne :-         
-
+                sta ramcodeloc-1,x   
+                dex                
+                bne :-           
+                
                 lda #CMD_MODELINEAR     ;Restore to linear mode
-                sta cmdreg                
+                sta cmdreg
                 rts
 .endif
 ;----
