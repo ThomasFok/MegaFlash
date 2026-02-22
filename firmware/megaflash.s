@@ -248,10 +248,41 @@ nomf:
       
                 jsr copybm              ;Copy Boot Menu code to RAM
                 jmp BMRUN               ;Execute Boot Menu
-nobootmenu:     rts
 
-;-----
-;A short delay sub-routine.
+nobootmenu:     ;exit here
+                ;The original code at $BF19 is jmp($0000)
+
+                ;Load ($0000) to A and Y
+                ldy $01         ;Y=High Byte
+                lda $00         ;A=Low Byte              
+                ;fall into swjmp_ay
+                
+;----------------------------------------------------------
+;JMP to Bank 0 address (AY)
+;After coldstartinit, we need to jump back to main bank
+;to start boot sequence or Boot Menu. This routine
+;Reset stack pointer.
+;Push the destination address-1 to stack. 
+;Jump to swrts to Switch bank, then use RTS instruction
+;to jump to the destination
+;
+; Input: A = Low byte of destination Address
+;        Y = High byte of destination Address
+;
+;                
+swjmp_ay:              
+                tax             ;Test if A(Low Byte)=0
+                bne :+          ;If not 0, dec low byte only
+                dey             ;Dec High Byte
+:               dec             ;Dec Low Byte
+                ldx #$ff        ;Reset Stack Pointer
+                txs             ;
+                phy             ;Push High Byte
+                pha             ;Push Low Byte
+                jmp swrts       ;Switch bank, then RTS
+
+;----------------------------------------------------------
+;A short delay (18 cycles) sub-routine.
 ;must be in IOROM segment so that it is not accelerated
                 .segment "IOROM"
                 .reloc

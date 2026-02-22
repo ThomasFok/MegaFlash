@@ -1,3 +1,5 @@
+Version 1.0.1
+- Reduce memory usage in SLOTROM
 
 Version 1.0 13-Jul-2025 (FWVERSION = $01)
 - First Public Release

@@ -22,28 +22,22 @@
 ;
 ; The code of stock firmware at $FB19 is 
 ; FB19: JMP ($0000)
+;       BRK
+;       BRK
 ; 
 ; It is the last instruction of Power Up routine. ($00) should
-; points to $C400. The jmp instruction starts the booting sequence.
+; points to $C400. The jmp instruction starts the boot sequence.
 ;
 ; We intercept this instruction and call our routine which is in auxrom.
-; Since the screen has been cleared, the routine can display information
-; to screen. It can also modify the pointer at $00 to jump to other routine
-; upon completion of the Initialization.
+; There are two BRK instruction after the JMP instruction. There are 5 Bytes
+; of empty space which is enough to jump to our routine
 ;
 
                 .segment "B0_FB19" ;Size=5 Bytes
                 .reloc
-                lda #MODE_INIT  ;Pre-Load Acc value
-                jmp coldstart2  ;Jump to our routine
+                lda #MODE_INIT  ;Run coldstartinit in aux bank
+                jmp slxeq       ;Jump to our routine, no return
 
-                
-                .segment "SLOTROM"
-coldstart2:     ;Our own initialization routine
-                jsr slxeq       ;Call coldstartinit routine of driver
-                jmp ($0)        ;Original code at $FB19
-                
-                
                 
 .ifdef IICP     ;For Apple IIc Plus only
 
