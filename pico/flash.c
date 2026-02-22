@@ -1088,6 +1088,18 @@ void InitSpi(){
    //Do a dummy read to set SCLK high
    uint8_t dummy;
    spi_read_blocking(spi0, REPEATED_TX_DATA, &dummy, 1);
+   
+  //
+  //Notes about SPI Mode of Pico
+  //
+  //SPI Mode 0: CPOL=0, CPHA=1
+  //The clock signal is low when idle. The /CS is deasserted and reasserted 
+  //after each byte if /CS is controlled by SPI. i.e. a pulse after each byte.
+  //
+  //SPI Mode 3: CPOL=1, CPHA=1
+  //The clock signal is high when idle. The /CS is asserted during entire 
+  //data transfer if /CS is controlled by SPI.
+  // 
 }
 
 //////////////////////////////////////////////////////
