@@ -356,8 +356,9 @@ bmjmptable:     .addr key2
                 hascii "8) Toggle CPU Speed"                   
 .endif           
            
-                .dbyt (LINE21+8)
-                hascii TITLESTR
+                .dbyt (LINE21+(40-TITLESTRLEN)/2)       ;Centre the message       
+titlestr:       hascii TITLESTR
+TITLESTRLEN     = (*-titlestr)                
                 
                 .byte $00       ;End of Menu Message
                 
