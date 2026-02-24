@@ -693,18 +693,79 @@ writeblock:
 ;
 ;readoneblock / writeoneblock - RAM-based Implementation
 ;
-;Speed Test:
+;
+;The IIc plus accelerator does not cache memory region $C000-$CFFF. But the 
+;data transfer routine cannot be placed in $D000-$FFFF because ProDOS data
+;buffer is in the language card $D000-$FFFF. So, the data transfer routine
+;must be in IOROM segment, which is not acclerated on IIc plus or 
+;IIc with ZIP chip. Another solution is to put the routine in RAM.
+;
+;Stack memory area ($100-$1FF) is used to store the data transfer routine.
+;The advantage is that the content of the memory does not need to be preserved.
+;The data transfer routine is pushed to the stack and execute from there
+;
+;But the stack may not have enough space to store the entire routine.
+;The workaround is if there is not enough space, fall back to ROM based routine
+;
+;Speed Test
+;==========
+;
 ;The time required (in usec) for reading one block is measured.
 ;
 ;           4MHz          4MHz           1MHz
 ;           (First run)   (Second run)
-;RAM-Based  3691          3190           7119
-;ROM-Based  6513          6407           7194
+;Stack      3629          3112           6807   (Code in $100-$1FF)
+;RAM-Based  3691          3190           7119   (Code in zero page, Firmware Version 1.0)
+;ROM-Based  6513          6407           7194   (Code in IOROM segment, paritally unrolled)
+;
 ;
 ;Second run is faster because of the cache
 ;
-;The RAM-Based routine is faster in all circumstances
+;Stack Free Space Calculation
+;============================
+;
+;We reserve some more bytes from the stack when we check if the program
+;fits in the stack in case there is NMI interrupt handler or some 
+;programs use the RAM area near $100.
+;
+; Stack Free Space = Stack Pointer + 1
+;
+; So, the test is
+; SP+1 >=  Required Space
+; SP   >= (Required Space)-1
+;
 ;*****************************************************************
+
+;Make sure the stack has at least these amount of free space
+STACKRESERVEDBYTE       =       20
+
+
+;------------------------------------------------------------------------------
+; Read One Block sub-routine (ROM-only Implementation)          
+; Function: Tansfer one block from MegaFlash data buffer to ProDOS    
+;
+; Input: spIOPointer (Source Address)         
+;   
+                .segment "IOROM"        ;Must be in IOROM segment to access language card area      
+                .reloc
+readoneblock_rom:   
+                ;no need to reset data buffer pointer
+                ;The pointer is reset by MegaFlash after Read Block command
+                
+                ldx lcstate             ;Restore LC setting
+                inc $c000,x             ;    
+                jsr readonepage
+                inc spIOPointer+1       ;next page
+                jsr readonepage2        ;y already = 0       
+                sta romain              ;Restore to ROM ($D000-$FFFF)
+                rts
+;---                
+readonepage:    ldy #0                  
+readonepage2:   lda datareg             ;Four bytes are transferred in each iteration
+                sta (spIOPointer),y 
+                iny
+                bne readonepage2
+                rts
 
 
 ;------------------------------------------------------------------------------
@@ -714,77 +775,74 @@ writeblock:
 ; Input: spIOPointer (Source Address)         
 ;   
 ;
-;The IIc plus accelerator does not cache memory region $C000-$CFFF. But the 
-;data transfer routine cannot be placed in $D000-$FFFF because ProDOS data
-;buffer is in the language card $D000-$FFFF. So, the data transfer routine
-;must be in IOROM segment, which is not acclerated on IIc plus or 
-;IIc with ZIP chip. Another solution is to put the routines in RAM.
-;
-;A section of zeropage, labelled as ramcodeloc, is used to store the routines.
-;The content of the zeropage memory is preserved in parameter buffer. 
-;Then, the data transfer routine is copied to that area.
-;The routine is executed from RAM and the original content of that area
-;is restored.
-;
-;Address $3A-$49 are used to store the RAM code. Refer to smartport.s for details
-;Note: Interrupt is disabled when ProDOS calls us. So, we dont need to disable
-;the interrupt when we use these memory locations.
-;
                 .segment "ROM1"
                 .reloc
                 ramcodeloc:= zpscratch
 readoneblock:   
+                ;Check if there is enough space in stack
+                ;fall back to ROM-only implementation if not enough space                
+                tsx
+                cpx #RDRAMCODELEN+STACKRESERVEDBYTE-1
+                bcs @start                      ;bge @start. **read notes below
+                jmp readoneblock_rom            ;in IOROM segment
+
+@start:         ;** C=1
+                ;The ADC instruction below assumes C=1
+
                 lda #CMD_MODEINTERLEAVED        ;switch to interleaved mode
-                sta cmdreg                      ;No need to poll busy flag
-                                                ;We have a lot of work below
+                sta cmdreg                      
+;---             
+                ;
+                ;Copy the data transfer routine to stack
+                ;
+                ldx     #RDRAMCODELEN
+:               lda     rdramcode-1,x
+                pha
+                dex
+                bne     :-
+                ; SP->
+                ;  +1: First Byte of RAM code                
                 
-                ;Read spIOPointer before copying program code to zero page because
-                ;they can be at the same memory address. Copying the code may
-                ;destroy spIOPointer
-                lda spIOPointer         ;a=spIOPointer
-                ldx spIOPointer+1       ;read spIOPointer+1
-                phx                     ;stack = spIOPointer+1
-                
-                ;save the original content and copy the data transfer routine rdramcode to zeropage
-                stz cmdreg              ;Reset Buffer Pointers        
-                ldy #RDRAMCODELEN             
-:               ldx ramcodeloc-1,y
-                stx paramreg
-                ldx rdramcode-1,y
-                stx ramcodeloc-1,y
-                dey
-                bne :-
-                ;y=0 now. ramcodeexec expects y=0
-                
-                ;self modifying code, update the operands of sta instructions
-                sta ramcodeloc+4        ;a=spIOPointer
-                sta ramcodeloc+10
-                pla                     ;pull spIOPointer+1 from stack
-                sta ramcodeloc+5
-                inc a                   ;upper page
-                sta ramcodeloc+11
+                ;Patch the self modified Code
+                ;
+                tsx                     ;x=Current SP
+                lda     spIOPointer     ;Low Byte
+                sta     $101+4,x        ;offset 4
+                sta     $101+10,x       ;offset 10
+                lda     spIOPointer+1   ;High Byte
+                sta     $101+5,x        ;offset 5
+                inc                     ;next page
+                sta     $101+11,x       ;offset 11
 
-exec_restore:                
-                ;Reset Parameter Buffer pointer, ready for restoring the content below               
-                stz cmdreg                   
+                ;X=Current SP
+                txa                     ;Save a copy to A
                 
-                ;Switch to LC and execute the code
-                jsr ramcodeexec         
-
-                ;restore the original content of zero page
-                ;parameter pointer has been reset
-                ldx #RDRAMCODELEN
-:               lda paramreg       
-                sta ramcodeloc-1,x   
-                dex                
-                bne :-           
+                ;spIOPointer is not needed after patching the code
+                ;Store the entry point of the code to spIOPointer
+                ;Then, use jmp (spIOPointer) to execute the code
+                inx                     ;Adjust Low Byte
+                stx     spIOPointer     ;Low Byte
+                ldy     #$01            ;High Byte
+                sty     spIOPointer+1   
+                ;y=1
                 
-                lda #CMD_MODELINEAR     ;Restore to linear mode
-                sta cmdreg
-                rts
+                ;Restore SP to original value
+                ;Add RDRAMCODELEN to A
+                ;Since C=1 (see notes above), we add RDRAMCODELEN-1 without clearing Carry Flag
+                adc #RDRAMCODELEN-1
+                tax                    
+                txs                   
+                
+                ;
+                ;The code is ready to be executed
+                ;
+                
+                ;Continue in IOROM segment
+                dey             ;Set y=0. The data transfer routine expects y=0 before calling
+                jmp execramcode
 
 ;----------------------------------------------------------------------
-rdramcode:      ;The code below is copied to ramcodeloc
+rdramcode:      ;The code below is copied to stack area ($100-$1FF)
                 ;The address $ffff is modified to actual destination.
                 ;It transfers one block from data buffer to RAM.
                 lda datareg
@@ -795,23 +853,52 @@ rdramcode:      ;The code below is copied to ramcodeloc
                                ;$ffff is a placeholder of actual address
                 iny
                 bne rdramcode
-                rts
+                jmp ramcode_rtn
 RDRAMCODELEN    = (* - rdramcode)                                                               
 ;----------------------------------------------------------------------
 
-
-
-;----------------------------------------------------------------
+;----------------------------------------------------------------------
 ; Sub-routine shared by readoneblock and writeoneblock           
                 .segment "IOROM"
-                .reloc         
-ramcodeexec:
+                .reloc    
+execramcode:
                 ldx lcstate             ;Restore LC setting
                 inc $c000,x             ;                
-                ;ldy #0                 ;The data transfer routine expects y=0 before calling
-                                        ;But Y already = 0, no need to set it up
-                jsr ramcodeloc          ;execute the data transfer routine from zero page
+
+                ;Jmp to data transfer routine
+                jmp (spIOPointer)
+                
+ramcode_rtn:    ;The data transfer routine jump back here             
+                lda #CMD_MODELINEAR     ;Restore to linear mode
+                sta cmdreg
+                sta romain              ;Restore to ROM ($D000-$FFFF)                
+                rts
+;----------------------------------------------------------------------                
+
+;------------------------------------------------------------------------------
+; Write One Block sub-routine (ROM-only Implementation)        
+; Function: Transfer one block from ProDOS to MegaFlash data buffer
+;
+; Input: spIOPointer (Dest Address)         
+; 
+                .segment "IOROM"        ;Must be in IOROM segment to access language card area              
+                .reloc
+writeoneblock_rom:  
+                stz cmdreg              ;reset data buffer pointer
+                
+                ldx lcstate             ;Restore LC setting
+                inc $c000,x             ;    
+                jsr writeonepage
+                inc spIOPointer+1       ;next page
+                jsr writeonepage2       ;y already = 0         
                 sta romain              ;Restore to ROM ($D000-$FFFF)
+                rts
+                
+writeonepage:   ldy #0                  
+writeonepage2:  lda (spIOPointer),y     ;Four bytes are transferred in each iteration
+                sta datareg
+                iny
+                bne writeonepage2
                 rts
 
 ;------------------------------------------------------------------------------
@@ -823,63 +910,71 @@ ramcodeexec:
                 .segment "ROM1"
                 .reloc
 
-writeoneblock:  lda #CMD_MODEINTERLEAVED        ;switch to interleaved mode, reset data buffer pointer
-                sta cmdreg                      ;No need to poll busy flag
-                                                ;We have a lot of work below
+writeoneblock:  
+                ;Check if there is enough space in stack
+                ;fall back to ROM-only implementation if not enough space
+                tsx
+                cpx #RDRAMCODELEN+STACKRESERVEDBYTE-1
+                bcs @start                      ;bge @start. **read notes below
+                jmp writeoneblock_rom           ;in IOROM segment
 
-                ;Read spIOPointer to registers before copying program code to zero page because
-                ;they can be at the same memory address. Copying the code may destroy spIOPointer
-                lda spIOPointer         ;a=spIOPointer
-                ldx spIOPointer+1       ;read spIOPointer+1
-                phx                     ;stack = spIOPointer+1
+@start:         ;** C=1
+                ;The ADC instruction below assumes C=1
 
-                ;save the original content and copy the data transfer routine wrramcode to zeropage
-                stz cmdreg              ;Reset Buffer Pointer
-                ldy #WRRAMCODELEN
-:               ldx ramcodeloc-1,y
-                stx paramreg
-                ldx wrramcode-1,y
-                stx ramcodeloc-1,y
-                dey
-                bne :-
-                ;y=0 now. ramcodeexec expects y=0
+                lda #CMD_MODEINTERLEAVED        ;switch to interleaved mode
+                sta cmdreg                                     
+;---             
+                ;
+                ;Copy the data transfer routine to stack
+                ;
+                ldx     #WRRAMCODELEN
+:               lda     wrramcode-1,x
+                pha
+                dex
+                bne     :-
+                ; SP->
+                ;  +1: First Byte of RAM code                      
                 
-                ;self modifying code, update the operands of lda instructions
-                sta ramcodeloc+1        ;a=spIOPointer
-                sta ramcodeloc+7
-                pla                     ;pull spIOPointer+1 from stack 
-                sta ramcodeloc+2
-                inc a                   ;upper page
-                sta ramcodeloc+8
- 
-                ;If WRRAMCODELEN and RDRAMCODELEN are the equal, the code
-                ;section below is same as the one in readoneblock.
-                ;Just reuse the code to save memory space.
-                bra exec_restore
- ;-----
-.if 0               
-                ;Reset Parameter Buffer pointer, ready for restoring the content below               
-                stz cmdreg                   
-                
-                ;Switch to LC and execute the code
-                jsr ramcodeexec         
+                ;Patch the self modified Code
+                ;
+                tsx                     ;x=Current SP
+                lda     spIOPointer     ;Low Byte
+                sta     $101+1,x        ;offset 1
+                sta     $101+7,x        ;offset 7
+                lda     spIOPointer+1   ;High Byte
+                sta     $101+2,x        ;offset 2
+                inc                     ;next page
+                sta     $101+8,x        ;offset 8
 
-                ;restore the original content of zero page
-                ;parameter pointer has been reset
-                ldx WRRAMCODELEN
-:               lda paramreg       
-                sta ramcodeloc-1,x   
-                dex                
-                bne :-           
+                ;X=Current SP
+                txa                     ;Save a copy to A
                 
-                lda #CMD_MODELINEAR     ;Restore to linear mode
-                sta cmdreg
-                rts
-.endif
-;----
+                ;spIOPointer is not needed after patching the code
+                ;Store the entry point of the code to spIOPointer
+                ;Then, use jmp (spIOPointer) to execute the code
+                inx                     ;Adjust Low Byte
+                stx     spIOPointer     ;Low Byte
+                ldy     #$01            ;High Byte
+                sty     spIOPointer+1   
+                ;y=1
+                
+                ;Restore SP to original value
+                ;Add WRRAMCODELEN to A
+                ;Since C=1 (see notes above), we add WRRAMCODELEN-1 without clearing Carry Flag
+                adc #WRRAMCODELEN-1
+                tax                    
+                txs                    
+                
+                ;
+                ;The code is ready to be executed
+                ;
+                
+                ;Continue in IOROM segment
+                dey             ;Set y=0. The data transfer routine expects y=0 before calling
+                jmp execramcode
 
 ;----------------------------------------------------------------------
-wrramcode:      ;The code below is copied to ramcodeloc.
+wrramcode:      ;The code below is copied to stack area ($100-$1FF)
                 ;The address $ffff is modified to actual destination.
                 ;It transfers one block from RAM to data buffer
                 lda $ffff,y     ;Read from lower page
@@ -890,93 +985,12 @@ wrramcode:      ;The code below is copied to ramcodeloc.
                 sta datareg
                 iny
                 bne wrramcode
-                rts
+                jmp ramcode_rtn
 WRRAMCODELEN    = (* - wrramcode)     
 ;----------------------------------------------------------------------             
 
 
-;*****************************************************************
-;
-;readoneblock / writeoneblock - ROM Only Implementation
-;Loop is partially unrolled to improve speed.
-;
-;*****************************************************************
 
-;------------------------------------------------------------------------------
-; Read One Block sub-routine           
-; Function: Tansfer one block from MegaFlash data buffer to ProDOS    
-;
-; Input: spIOPointer (Source Address)         
-;   
-.if 0   ;Not Used. The code is kept for future reference
-                .segment "IOROM"        ;Must be in IOROM segment to access language card area      
-                .reloc
-readoneblock:   
-                lda #CMD_MODELINEAR     ;switch to linear mode, reset data buffer pointer
-                jsr execute
-                
-                ldx lcstate             ;Restore LC setting
-                inc $c000,x             ;    
-                jsr readonepage
-                inc spIOPointer+1       ;next page
-                jsr readonepage2        ;y already = 0       
-                sta romain              ;Restore to ROM ($D000-$FFFF)
-                rts
-                
-readonepage:    ldy #0                  ;Partially unroll  the loop
-readonepage2:   lda datareg             ;Four bytes are transferred in each iteration
-                sta (spIOPointer),y 
-                iny
-                lda datareg
-                sta (spIOPointer),y
-                iny
-                lda datareg
-                sta (spIOPointer),y
-                iny
-                lda datareg
-                sta (spIOPointer),y
-                iny
-                bne readonepage2
-                rts
-.endif
-
-;------------------------------------------------------------------------------
-; Write One Block sub-routine                
-; Function: Transfer one block from ProDOS to MegaFlash data buffer
-;
-; Input: spIOPointer (Dest Address)         
-; 
-.if 0   ;Not Used. The code is kept for future reference
-                .segment "IOROM"        ;Must be in IOROM segment to access language card area              
-                .reloc
-writeoneblock:  
-                lda #CMD_MODELINEAR     ;switch to linear mode, reset data buffer pointer
-                jsr execute
-                
-                ldx lcstate             ;Restore LC setting
-                inc $c000,x             ;    
-                jsr writeonepage
-                inc spIOPointer+1       ;next page
-                jsr writeonepage2       ;y already = 0         
-                sta romain              ;Restore to ROM ($D000-$FFFF)
-                rts
-                
-writeonepage:   ldy #0                  ;Partially unroll  the loop
-writeonepage2:  lda (spIOPointer),y     ;Four bytes are transferred in each iteration
-                sta datareg
-                iny
-                lda (spIOPointer),y
-                sta datareg
-                iny
-                lda (spIOPointer),y
-                sta datareg
-                iny
-                lda (spIOPointer),y
-                sta datareg
-                iny                
-                bne writeonepage2
-                rts
-.endif
 
 ;------------------------------------------------------------------------------
 ; ProDOS clock driver       
@@ -1070,4 +1084,4 @@ loadcpanel:     stz aval                ;Assume No error
                 
 @notexist:      inc aval        ;Change it to 1 to indicate error           
 @finish:        rts                
-                
+
