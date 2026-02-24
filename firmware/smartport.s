@@ -199,12 +199,24 @@ exit:           .if DEBUG
                 ; if RESTOREZPSCRATCH is TRUE
                 ;
 .if RESTOREZPSCRATCH
-                ldx #0
-:               pla
-                sta zpscratch,x
+;If we offset the x-register by -ZPSCRATCHSIZE and add ZPSCRATCHSIZE to
+;address of sta instruction. The code becomes:
+;
+;                Original Code                  New Code
+;                ldx #0                         ldx #0-ZPSCRATCHSIZE
+;@loop:          pla                            pla
+;                sta zpscratch,x                sta zpscratch+ZPSCRATCHSIZE,x
+;                inx                            inx
+;                cpx #ZPSCRATCHSIZE             cpx #ZPSCRATCHSIZE-ZPSCRATCHSIZE
+;                bne @loop                      bne @loop
+;
+;The cpx instruction is not needed since it is cpx #0.
+;
+                ldx #.LOBYTE(0-ZPSCRATCHSIZE)   ;.LOBYTE() is needed for negative number
+@loop:          pla
+                sta z:zpscratch+ZPSCRATCHSIZE,x
                 inx
-                cpx #ZPSCRATCHSIZE
-                bne :-  
+                bne @loop 
 .endif
 
                 ;
