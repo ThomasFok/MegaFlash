@@ -761,9 +761,12 @@ readoneblock_rom:
                 rts
 ;---                
 readonepage:    ldy #0                  
-readonepage2:   lda datareg             ;Four bytes are transferred in each iteration
+readonepage2:   lda datareg             ;Two bytes are transferred in each iteration
                 sta (spIOPointer),y 
                 iny
+                lda datareg
+                sta (spIOPointer),y 
+                iny                
                 bne readonepage2
                 rts
 
@@ -895,9 +898,12 @@ writeoneblock_rom:
                 rts
                 
 writeonepage:   ldy #0                  
-writeonepage2:  lda (spIOPointer),y     ;Four bytes are transferred in each iteration
+writeonepage2:  lda (spIOPointer),y     ;Two bytes are transferred in each iteration
                 sta datareg
                 iny
+                lda (spIOPointer),y
+                sta datareg
+                iny                
                 bne writeonepage2
                 rts
 
