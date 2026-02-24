@@ -185,7 +185,9 @@ printwait:      ;A=Delay Duration
 ;Applesoft Integer Variable Conversion Fix
 ;
 ;The range of integer variable is 32767  to -32768
-;For A=-32768: A%=A: PRINT A%
+;
+;If this sequence of instructions are executed
+;   A=-32768: A%=A: PRINT A%
 ;
 ;The result should be -32768. But Illegal Quantity Error
 ;occurs
