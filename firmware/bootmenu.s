@@ -192,7 +192,7 @@ nextmsg:        sta $01         ;High Byte of addr
                                 ;give feedback to user
                 pla             ;Restore the keyboard input
                 
-                ;'C' is same as key 7 (Config Util)
+                ;'C' is same as key 7 (Control Panel)
                 cmp #'C'|$80
                 beq key7
                 cmp #'c'|$80
