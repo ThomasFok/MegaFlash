@@ -1,4 +1,3 @@
-
 .include "macros.inc"
 
 
@@ -15,9 +14,13 @@ DEBUG 	        EQU     FALSE
 ;Restore Zero Page Scratch Area
 ;Default: TRUE
 ;
-; According to ProDOS technical reference, $3A-$3F are used by ProDOS
-; as temporary variables and does not need to be restored.
-; If this flag is set to TRUE, the memory region is restored
+;According to ProDOS technical reference, $3A-$3F are used by ProDOS
+;as temporary variables and does not need to be restored.
+;If this flag is set to TRUE, the memory region is restored
+;
+;This flag is currently set to TRUE because there ia a concern that 
+;the games in Total Replay, which originally are not written for running
+;under ProDOS, may not follow the rules. They may use that area.
 RESTOREZPSCRATCH EQU    TRUE
 
 ;--------------------------------------------
