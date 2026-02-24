@@ -204,7 +204,7 @@ exit:           .if DEBUG
                 sta zpscratch,x
                 inx
                 cpx #ZPSCRATCHSIZE
-                blt :-  
+                bne :-  
 .endif
 
                 ;
@@ -221,7 +221,7 @@ exit:           .if DEBUG
                 sta zpstart,x
                 inx
                 cpx #ZPSIZE
-                blt :-                
+                bne :-                
 .endif
                 rts
 
