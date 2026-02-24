@@ -2,13 +2,14 @@
 ; Constants
 ;
 SPDRIVERVERSION   =       $0000              ;SmartPort Version, reported to host 
-FWVERSION         =       $01                ;Version of this Firmware, Stored at $C4FA
+FWVERSION         =       $02                ;Version of this Firmware, Stored at $C4FA
 .if DEBUG
-.define TITLESTR "MegaFlash Firmware D1.0"   ;Shown on boot menu screen, Debug Version
+.define TITLESTR "MegaFlash Firmware D1.0.1"   ;Shown on boot menu screen, Debug Version
 .else
-.define TITLESTR "MegaFlash Firmware V1.0"   ;Shown on boot menu screen
+.define TITLESTR "MegaFlash Firmware V1.0.1"   ;Shown on boot menu screen
 .endif
-; $01 = Version 1.0 13-Jul-2025
+; $01 = Version 1.0    13-Jul-2025
+; $02 = Version 1.0.1 
 
 .define IDSTR   "MEGAFLASH DRV N "           ;ID String Padded to 16 bytes
 IDSTRLEN          =       15
