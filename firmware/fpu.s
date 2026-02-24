@@ -221,16 +221,16 @@ noerr:          ;x=5
                 ;The solution is to push the destination address to stack
                 ;and execute jmp swrts to switch bank + RTS.
                 ;
-jmpov:          lda #>(overflow-1)      ;Overflow Error                     
-                ldx #<(overflow-1)
+jmpov:          lda #.HIBYTE(overflow-1)      ;Overflow Error                     
+                ldx #.LOBYTE(overflow-1)
 pushrts:        pha
                 phx
                 jmp swrts
-jmp0div:        lda #>(zerodiv-1)       ;Divison by Zero Error                        
-                ldx #<(zerodiv-1)
+jmp0div:        lda #.HIBYTE(zerodiv-1)       ;Divison by Zero Error                        
+                ldx #.LOBYTE(zerodiv-1)
                 bra pushrts
-jmpiqerr:       lda #>(iqerr-1)         ;Illegal Quantity Error                           
-                ldx #<(iqerr-1)
+jmpiqerr:       lda #.HIBYTE(iqerr-1)         ;Illegal Quantity Error                           
+                ldx #.LOBYTE(iqerr-1)
                 bra pushrts
                 
 fout_result:    ;
@@ -272,9 +272,9 @@ fout_result:    ;
                 inx
                 dey
                 bne :-
-invalidlen:     stz a:stack-1,x ;NULL Terminate the string
-                lda #<stack     ;Original Implementation sets AY to stack              
-                ldy #>stack     ;before return                
+invalidlen:     stz a:stack-1,x         ;NULL Terminate the string
+                lda #.LOBYTE(stack)     ;Original Implementation sets AY to stack              
+                ldy #.HIBYTE(stack)     ;before return                
                 jmp swrts
 ;----------------------------------------------------     
 ;FADD
