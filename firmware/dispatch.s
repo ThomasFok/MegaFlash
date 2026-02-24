@@ -57,7 +57,7 @@ lcstate:       .res 1
 
                 ;
                 ;Our own implementation
-                ;It must be in IOROM area since Language Card
+                ;It must be in IOROM segment since Language Card
                 ;area may be switched to RAM.
                 ;
                 .segment "IOROM"
@@ -134,13 +134,15 @@ slxeqx:
                 
                 
 ;---------------------------------------------------------------------------------
-;The dispatcher has a fixed address as defined in config file
 ;When slxeq is called, the program flow will eventually reach
 ;this routine. The A and X registers remains unchanged.
 ;The A register is the operation mode.
 ;It dispatches to handlers according to mode.
 ;Bit 7 and 6 of mode are ignored so that additional information
-;can be passed to handler using these two bits.         
+;can be passed to handler using these two bits.        
+                .segment "ROM1"
+                .reloc
+ 
 dispatch:
                 ;Store a and x to aval, xval so handlers can get them
                 sta aval
