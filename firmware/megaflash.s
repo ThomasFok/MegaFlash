@@ -1044,7 +1044,7 @@ clockdriverimpl:
 ;------------------------------------------------------------------------------
 ; Load Control Panel Program Code to CPANELADDR
 ;
-; Output: A=0 if ok, =1 if Megaflash does not exist
+; Output: aval=0 if ok, =1 if Megaflash does not exist
 ;
                 .segment "ROM2"
                 .reloc
@@ -1057,10 +1057,14 @@ loadcpanel:     stz aval                ;Assume No error
 
                 ld16i dest, CPANELADDR
                 ldx #0                  ;x = pageno
-                ldy #0
+                ldy #0                  ;The code below expects y=0
                 
-@loop:          stz cmdreg              ;Reset Buffer Pointer
-                lda #CMD_LOAD_CPANEL    ;Preload A=CMD_LOAD_CPANEL
+                ;Reset Parameter Buffer Pointer for first Page
+                ;CMD_LOAD_CPANEL command resets the pointer.
+                ;So, no need to put this instruction inside the loop
+                stz cmdreg              
+          
+@loop:          lda #CMD_LOAD_CPANEL    ;Preload A=CMD_LOAD_CPANEL
                 stx paramreg            ;Write current page number to parameter buffer
                 
                 jsr execute
