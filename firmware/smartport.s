@@ -969,15 +969,6 @@ putstatus:      ldx lcstate
 ; ######   ######  #####    ####    ####      
 ;**************************************************************** 
 
-;------------------------------------------------------------
-;Segment Allocation
-;
-;On IIc plus, code running in IOROM segment is slower because
-;the memory region is not cacheable.
-;
-;So, put as many debug routines into IOROM segement as possible
-;
-
                 .segment "DEBUG"
                 .reloc
 ;-------------------------------------------------------------
