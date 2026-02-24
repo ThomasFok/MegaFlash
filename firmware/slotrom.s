@@ -32,11 +32,7 @@
 ;
 ; Slot Configuration
 ;
-.ifdef APPLEWIN
-SLOT            EQU     2               ;AppleWin
-.else
 SLOT            EQU     4               ;IIc/IIc+
-.endif
 
 SLOTX16         EQU     (SLOT*16)       ;$n0
 SLOTCN          EQU     ($C0+SLOT)      ;$Cn
@@ -293,14 +289,10 @@ bootfail:       ;($00) = $Cn00 if we are in auto-boot (power up/forced cold star
                 cmp  #SLOTCN
                 bne  notautobt
                 
-                .ifdef APPLEWIN
-                jmp  $FABA      ;Re-enter Monitor's Autoscan Routine. Does not exist in Apple IIc
-                .else
                 ;IIc/IIc+: Try next boot slot
                 lda #NEXTBOOTSLOT
                 sta $01
                 jmp ($00)
-                .endif
 
 prnbootfail:                        
 notautobt:      ;The boot code must have been called manually (e.g. pr#4)
