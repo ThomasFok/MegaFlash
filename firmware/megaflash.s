@@ -875,9 +875,11 @@ readoneblock:
                 ;
                 ;The code is ready to be executed
                 ;
+
+                ;Set y=0. The data transfer routine expects y=0 before calling
+                dey     
                 
                 ;Continue in IOROM segment
-                dey             ;Set y=0. The data transfer routine expects y=0 before calling
                 jmp execramcode
 
 ;----------------------------------------------------------------------
@@ -1012,8 +1014,10 @@ writeoneblock:
                 ;The code is ready to be executed
                 ;
                 
+                ;Set y=0. The data transfer routine expects y=0 before calling
+                dey     
+                
                 ;Continue in IOROM segment
-                dey             ;Set y=0. The data transfer routine expects y=0 before calling
                 jmp execramcode
 
 ;----------------------------------------------------------------------
