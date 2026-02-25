@@ -25,12 +25,38 @@
                 ;
         
                 
-;---------------------------------------------------------------------------------     
-; slxeq $C752 is the original entry point of Slinky firmware.
-; This entry point is used to execute MegaFlash command from main ROM Bank.
-; But the original implementation use screen hole ($678) as temporary storage.
-; For Total Replay, games may not follow the rule and they may use screen hole
-; area. So, we use our own implementation so that all memory location are preserved
+;***********************************************************
+;
+; SLXEQ Hook
+;
+; slxeq $C752 is the original entry point of Slinky firmware
+; It switches the ROM to aux bank and continue from address
+; $C755.
+;
+; But the original implementation does not meet our requirement.
+; So, we replace it with our own implementation.
+;
+; Calling Convention
+; ==================
+;
+; To call a handler through slxeq,
+;
+; Load the handler ID, called mode, to A-register
+; Load any optional parameter to X-register
+; Then, call slxeq routine
+;
+; The slxeq routine will eventually call the handler in aux
+; ROM bank.
+;
+; The handler can retrieve the A and X register values through
+; location aval and xval.
+;
+; To return values back to the caller, put the return values
+; to location aval, xval and yval. Then, execute RTS. Those 
+; values will be loaded to A,X and Y registers and returned 
+; to the caller.
+;
+;***********************************************************
 
               
                 ;
@@ -44,25 +70,19 @@ xval:          .res 1
 yval:          .res 1
 lcstate:       .res 1                
 
-
-                ;
-                ;Hook to original slxeq routine
-                ;
-                ;SLXEQHOOK is at $C755 of Bank 1
-                .segment "SLXEQHOOK"
+;*********************************************************
+;
+;Hook to original slxeq routine
+;
+;SLXEQHOOK is at $C755 of Bank 1
+;The code must be in IO area ($C100-C$FFF) since the langauge
+;card area may be switched to RAM.
+;There are 14 bytes of space from $C755 to $C762.
+;Then, we continue in IOROM segment
+;                
+                
+                .segment "SLXEQHOOK"   
                 .reloc
-                jmp slxeqx      ;Branch to our own implementation
-                ;Note: There are 14 bytes of free space here
-                ;We may make use of them if running out of memory
-
-                ;
-                ;Our own implementation
-                ;It must be in IOROM segment since Language Card
-                ;area may be switched to RAM.
-                ;
-                .segment "IOROM"
-                .reloc               
-slxeqx:
                 ;Step 1 Save aval,xval,yval,lcstate to stack
                 ldy yval
                 phy
@@ -71,7 +91,12 @@ slxeqx:
                 ldy aval
                 phy
                 ldy lcstate
-                phy
+                jmp slxeq2
+                ;then, continue in IOROM segment
+
+                .segment "IOROM"
+                .reloc               
+slxeq2:         phy
 
                 ;Step 2 Get LC State
                 ;It also switches LC Area to ROM
@@ -90,7 +115,7 @@ slxeqx:
                 ;Step 5 Restore aval,xval,yval and load return values to 
                 ;A,X and Y registers
                 ;The original values of aval, xval, yval is in the stack
-                ;aval, xval, yval are currently holding the returns value
+                ;aval, xval, yval are currently holding the return values
                 ;We need to move the return values to A,X and Y registers
                 ;and restore the original values of aval, xval and yval
                 ;without using any memory locations.
@@ -130,7 +155,7 @@ slxeqx:
                 
                 ply             ;discard the dummy byte from stack
                 ply             ;Get Y return value
-                jmp swrts
+                jmp swrts       ;Switch Bank and return to the caller
                 
                 
 ;---------------------------------------------------------------------------------
@@ -150,7 +175,7 @@ dispatch:
                 and #%00111111          ;A=mode, Mask out bit 7 and 6
                 cmp #JMPTBLLEN
                 blt modeok
-known_rts:      rts
+                rts
                         
                 ;Dispatch to handler
 modeok:         asl                     ; times 2
