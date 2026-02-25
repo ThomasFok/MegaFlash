@@ -3,6 +3,9 @@
 ; Module: Dispatcher
 ;
 
+                ;All codes default to this segment
+                .define HOMESEGMENT "ROM1"
+
                 .setcpu "65C02"
                 .segment "DISPATCH"
                 .reloc
@@ -165,7 +168,7 @@ slxeq2:         phy
 ;It dispatches to handlers according to mode.
 ;Bit 7 and 6 of mode are ignored so that additional information
 ;can be passed to handler using these two bits.        
-                .segment "ROM1"
+                .segment HOMESEGMENT
                 .reloc
  
 dispatch:

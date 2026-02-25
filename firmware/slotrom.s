@@ -3,8 +3,11 @@
 ; Module: Slot Rom and Bootcode
 ;
 
+                ;All codes default to this segment
+                .define HOMESEGMENT "ROM3"
+
                 .setcpu "65C02"
-                .segment "ROM1"
+                .segment HOMESEGMENT
                 .reloc
 
                 .include "buildflags.inc"
@@ -21,8 +24,6 @@
                 ;
                 ; Exports
                 ;
-                .segment "ROM1" ;To export as absolute
-
                 .export numbanks,pwrup,fpuenabled,toshowbootmenu        
                 .export scratch4,scratch5,scratch6,scratch7
                 .export copybc
@@ -64,7 +65,7 @@ scratch7        :=      ($07F8 + SLOT)
 ;  #####   ######   ####     #    #     #  #######  #     # 
 ;****************************************************************                                                           
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;---------------------------------------------------
 ; $Cn00-CnFF Slot ROM
 
                 .segment "SLOTROM_00"   ; At Offset 0 i.e. $Cn00
@@ -227,7 +228,7 @@ STCMDLEN        = (* - stcmd)
 
 
 
-                .segment "ROM3"
+                .segment HOMESEGMENT
                 .reloc
 bcloc:                                  ;Physical Address of bootcode in ROM
                 
@@ -420,7 +421,7 @@ BCLEN           = .LOBYTE(*-bcstart)    ;Length of bootcode
 ; After Ctrl-OA-Reset, the firmware writes $A0 to $BFB0 to
 ; trash memory. In this case, ProDOS is corrupted.
 
-                .segment "ROM3"
+                .segment HOMESEGMENT
                 .reloc
 copybc:         
                 ;Copy boot code to RAM
