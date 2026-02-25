@@ -69,8 +69,12 @@
 ; #     #  ######   ####   #    #  #        ######  #    #   ####   #    # 
 ;**************************************************************************
 
+                ;No contiguous memory segment can hold all the codes
+                ;in this module. The code is separated to ROM1 and ROM2
+                .define HOMESEGMENT "ROM1"
+
                 .setcpu "65c02"
-                .segment "ROM2"
+                .segment HOMESEGMENT
                 .reloc
 
                 .include "buildflags.inc"
@@ -136,7 +140,7 @@
 ; Print ASCII character in Acc for Debug Purpose
 ; 
 ;***********************************************************
-                .segment "IOROM"
+                .segment "DEBUG"
                 .reloc
                 
                 .if DEBUG    
@@ -167,7 +171,7 @@ print:          ;For MAME, if -bitbanger option is not enabled
 ; Cold Start Initialization
 ;
 ;***********************************************************
-                .segment "ROM1"
+                .segment HOMESEGMENT
                 .reloc
 coldstartinit:           
                 .if DEBUG
@@ -291,6 +295,8 @@ swjmp:          ldx #$ff        ;Reset Stack Pointer
                 .reloc
 shortdelay:     jsr :+
 :               rts
+                .segment HOMESEGMENT    ;Restore th HOMESEGMENT
+                .reloc
 
 ;***********************************************************
 ;
@@ -303,7 +309,7 @@ shortdelay:     jsr :+
 ;
 ;c=0 if exist, =1 if not exist
 ;
-                .segment "ROM2"
+                .segment HOMESEGMENT
                 .reloc
 chkmegaflash:   lda idreg
                 eor idreg       ;Acc = $ff if MegaFlash exists
@@ -319,7 +325,7 @@ chkmegaflash:   lda idreg
 ;
 ;c=0 if exist, =1 if not exist
 ;         
-                .segment "ROM2"
+                .segment HOMESEGMENT
                 .reloc
 chkmegaflashex:
                 lda #CMD_GETDEVINFO
@@ -501,7 +507,7 @@ getunitstatus:  jsr chkmegaflash        ;Check if MegaFlash exists
 ;
 ; Input: spUnitNum
 ;                       
-                .segment "ROM2"
+                .segment HOMESEGMENT
                 .reloc                                  
 writeblocksizetovdh:
                 stz cmdreg      ;Reset Buffer pointer
@@ -590,7 +596,22 @@ getdibdsb:
 @error:         sec                     ;Set Error Flag
 known_rts:      rts                    
 
+;***********************************************************
+;
+; ######                 #####  
+; #     #  ####  #    # #     # 
+; #     # #    # ##  ##       # 
+; ######  #    # # ## #  #####  
+; #   #   #    # #    # #       
+; #    #  #    # #    # #       
+; #     #  ####  #    # ####### 
+; 
+;***********************************************************
 
+
+                ;From this point, all codes default to ROM2 segment
+                .undef  HOMESEGMENT
+                .define HOMESEGMENT "ROM2"
               
 
 ;***********************************************************
@@ -614,7 +635,7 @@ known_rts:      rts
 ;
 ; Assume the caller has validated all parameters and check the unit status
 ; before calling.
-                .segment "ROM1"
+                .segment HOMESEGMENT
                 .reloc
 readblock:
                 ;Setup Parameters
@@ -669,7 +690,7 @@ rwparam:        stz cmdreg              ;reset buffer pointer
 ;
 ; Assume the caller has validated all parameters and check the unit status
 ; before calling.   
-                .segment "ROM1"
+                .segment HOMESEGMENT
                 .reloc
 writeblock: 
                 ;Copy block to data buffer
@@ -778,7 +799,7 @@ readonepage2:   lda datareg             ;Two bytes are transferred in each itera
 ; Input: spIOPointer (Source Address)         
 ;   
 ;
-                .segment "ROM1"
+                .segment HOMESEGMENT
                 .reloc
                 ramcodeloc:= zpscratch
 readoneblock:   
@@ -861,7 +882,8 @@ RDRAMCODELEN    = (* - rdramcode)
 ;----------------------------------------------------------------------
 
 ;----------------------------------------------------------------------
-; Sub-routine shared by readoneblock and writeoneblock           
+; Sub-routine shared by readoneblock and writeoneblock      
+; must be in IOROM segment     
                 .segment "IOROM"
                 .reloc    
 execramcode:
@@ -913,7 +935,7 @@ writeonepage2:  lda (spIOPointer),y     ;Two bytes are transferred in each itera
 ;
 ; Input: spIOPointer (Dest Address)         
 ; 
-                .segment "ROM1"
+                .segment HOMESEGMENT
                 .reloc
 
 writeoneblock:  
@@ -1011,7 +1033,7 @@ WRRAMCODELEN    = (* - wrramcode)
 clockdriver:    lda #MODE_CLOCKDRV
                 jmp slxeq       ;jsr + rts
 
-                .segment "ROM2"
+                .segment HOMESEGMENT
                 .reloc
 clockdriverimpl:                
                 jsr chkmegaflash
@@ -1052,7 +1074,7 @@ clockdriverimpl:
 ;
 ; Output: aval=0 if ok, =1 if Megaflash does not exist
 ;
-                .segment "ROM2"
+                .segment HOMESEGMENT
                 .reloc
                 
 dest            := $42  ;$42-43 destination pointer
