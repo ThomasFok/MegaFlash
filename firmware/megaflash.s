@@ -750,7 +750,7 @@ writeblock:
 ;
 ;           4MHz          4MHz           1MHz
 ;           (First run)   (Second run)
-;Stack      3629          3112           6807   (Code in $100-$1FF)
+;Stack      3649          3164           6795   (Code in stack, Firmware Version 1.0.1)
 ;RAM-Based  3691          3190           7119   (Code in zero page, Firmware Version 1.0)
 ;ROM-Based  6513          6407           7194   (Code in IOROM segment, paritally unrolled)
 ;
