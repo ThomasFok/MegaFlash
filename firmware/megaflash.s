@@ -528,32 +528,46 @@ writeblocksizetovdh:
                 rts  
 
 ;----------------------------------------------------------
-; Get DSB/DIB of unit
-; Write DSB(Device Status Block) or Device Information Block
+; Get DIB of unit
+; Write Device Information Block (DIB)
 ; to the location pointed by spStatusListPtr.
-; DSB is same as the first 4 bytes of DIB
+; DIB is 25 bytes long
 ;
 ; Input: spUnitNum (1-N) (Assume it is valid)
 ;        spStatusListPtr
 ;
-;        Carry Set if failed to retrieve DIB/DSB from Megaflash
+;        Carry Set if failed to retrieve DIB from Megaflash
 ;
-                .segment "IOROM"        ;Must be in IOROM since we may switch LC area to RAM.
+                .segment HOMESEGMENT
                 .reloc
-getdib:         ldx #DIB_LEN-2          ;We don't need the last two bytes
+getdib:         ldx #DIB_LEN-2          ;We don't need the last two bytes (offset 23, 24)
                                         ;which is Smartport Driver Version Word
                 jsr getdibdsb
-                bcs known_rts
+                bcs @error              ;carry set if error
                 ;Overwrite offset 23,24 of DIB which is Smartport Driver Version
                 ;It is defined in defines.inc of Apple Firmware, not Pico
                 ldy #23                 ;offset 23
                 lda #.LOBYTE(SPDRIVERVERSION)
                 jsr putstatus
-                iny                     ;y=24
+                iny                     ;offset=24
                 lda #.HIBYTE(SPDRIVERVERSION)
                 jmp putstatus           ;jsr+rts       
+@error:         rts
 
-
+;----------------------------------------------------------
+; Get DSB of unit
+; Write Device Status Block (DSB)
+; to the location pointed by spStatusListPtr.
+; DSB is 4 bytes long and they are same as the first 4 bytes
+; of DIB
+;
+; Input: spUnitNum (1-N) (Assume it is valid)
+;        spStatusListPtr
+;
+;        Carry Set if failed to retrieve DSB from Megaflash
+;
+                .segment "IOROM"        ;Must be in IOROM since we fall into getdibdsb
+                .reloc
 getdsb:         ldx #DSB_LEN
                 ;fall into getdibdsb
                  
@@ -562,9 +576,10 @@ getdsb:         ldx #DSB_LEN
 ;Get DIB or DSB from MegaFlash
 ;Input: X= Number of Bytes to be copied to destination (spStatusListPtr)
 ;
-;Carry is the error flag.                 
-getdibdsb:         
-                jsr chkmegaflash        ;Check if MegaFlash exists
+;Carry is the error flag.   
+                .segment "IOROM"        ;Must be in IOROM since we restore LC setting
+                .reloc
+getdibdsb:      jsr chkmegaflash        ;Check if MegaFlash exists
                 bcs @error              ;Branch if MegaFlash not exists
 
                 stz cmdreg              ;Reset Buffer Pointers
@@ -576,17 +591,17 @@ getdibdsb:
                 bvs @error
 
                 txa                     ;Save x to a
-                ldx lcstate
-                inc $c000,x             ;Restore LC
+                ldx lcstate             ;Restore LC
+                inc $c000,x             ;
                 
                 ;Copy result, x is loop counter
                 tax                     ;Restore x (loop counter)
                 ldy #0
-:               lda paramreg
+@loop:          lda paramreg
                 sta (spStatusListPtr),y
                 iny
                 dex   
-                bne :-
+                bne @loop
                 
                 sta romain              ;Switch back to ROM ($D000-$FFFF)
                 
@@ -594,7 +609,7 @@ getdibdsb:
                 rts
                 
 @error:         sec                     ;Set Error Flag
-known_rts:      rts                    
+                rts                    
 
 ;***********************************************************
 ;
