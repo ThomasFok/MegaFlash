@@ -1,8 +1,9 @@
 Version 1.0.1
 - Reduce memory usage in SLOTROM
-- jmp to boot menu via swjmp routine
-- optimize readoneblock and writeoneblock routines
+- Jump to boot menu via swjmp routine
+- Optimize readoneblock and writeoneblock routines
 - Move dispatch to ROM1 segment
+- Move getdib to ROM1 segment
 
 Version 1.0 13-Jul-2025 (FWVERSION = $01)
 - First Public Release
