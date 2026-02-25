@@ -3,8 +3,11 @@
 ; Module: Smartport Core Implementation
 ;
 
+                ;All codes default to this segment except debug routines
+                .define HOMESEGMENT "ROM1"
+
                 .setcpu "65c02"
-                .segment "ROM1"
+                .segment HOMESEGMENT
                 .reloc
 
                 .include "buildflags.inc"
@@ -124,10 +127,6 @@ spBlockNum24    := spParamList+3        ;3 Bytes Block Number
 spIOPointer     := spParamList+1        ;2 Bytes IO Buffer Pointer
 
 
-
-                .segment "ROM1"
-                .reloc
-                        
 ;**************************************************************
 ; #######                               
 ; #        #    #  #####  #####   #   # 
@@ -137,7 +136,9 @@ spIOPointer     := spParamList+1        ;2 Bytes IO Buffer Pointer
 ; #        #   ##    #    #   #     #   
 ; #######  #    #    #    #    #    #   
 ;**************************************************************
-
+      
+                .segment HOMESEGMENT
+                .reloc
 
 
 ;-----------------------------------------------
@@ -257,7 +258,7 @@ exit:           .if DEBUG
 ; Output: Setup errorno, xval and yval before return
 ;
 ;*********************************************************
-                .segment "ROM1"
+                .segment HOMESEGMENT
                 .reloc
 p8driver:
                 .if DEBUG
@@ -391,7 +392,7 @@ pwrite:         jmp writeblock
 ;  Output: Setup errorno, xval and yval before return
 ;
 ;*********************************************************
-                .segment "ROM1"
+                .segment HOMESEGMENT
                 .reloc
 spdriver:       ;errorno is the value returned in Acc
                 ;Default to BadCmd (Not implemented) error
