@@ -13,8 +13,11 @@
 ; ######    ####    ####     #    #     #  ######  #    #   ####  
 ;**************************************************************************
 
+                ;All codes default to this segment
+                .define HOMESEGMENT "ROM2"
+
                 .setcpu "65c02"
-                .segment "ROM1"
+                .segment HOMESEGMENT
                 .reloc
 
                 .include "buildflags.inc"
@@ -91,14 +94,12 @@ LINE24  = $7D0
 ; toshowbootmenu is set and then jmp to PWRUP to continue 
 ; the boot process. The coldstartinit routine in megaflash.s 
 ; will display the boot menu.
-
-                .segment "B0_FAC8"
-                .reloc
                 
 pwrup           := $FAA6
 banger          := $C7C1                
 
-
+                .segment "B0_FAC8"
+                .reloc
 bmentrypatch:   stz toshowbootmenu      ;Assume not display boot menu
                 asl butn1               ;C-Flag = CA status
                 bit butn0               ;N-Flag = OA status
@@ -106,8 +107,7 @@ bmentrypatch:   stz toshowbootmenu      ;Assume not display boot menu
                 
                 .segment "SLOTROM"
                 .reloc
-bmentrypatch2:
-                bmi oa_on               ;Branch if OA is pressed
+bmentrypatch2:  bmi oa_on               ;Branch if OA is pressed
                 bcc to_rts              ;Branch if CA is not pressed
                 dec toshowbootmenu      ;Enable Boot Menu, by change it from 0 to $FF
 to_pwrup:       jmp pwrup               ;Then, goto pwrup
@@ -121,23 +121,25 @@ to_banger:      jmp banger              ;Self-Test
 ; Copy boot menu code from bmloc to BMRUN
 ; Copy 512 bytes regardless the actual size of the code
 ;               
-                .segment "ROM2"
+                .segment HOMESEGMENT
                 .reloc               
 copybm:         
                 ldx #0
-:               lda bmloc,x
+@loop:          lda bmloc,x
                 sta BMRUN,x
                 lda bmloc+$100,x
                 sta BMRUN+$100,x
                 inx
-                bne :-
+                bne @loop
                 rts
 
-;--------------------------------------------------------------------
+;********************************************************************
+;
 ; Boot Menu Code
 ; Max Length: 512 Bytes
 ;
-                .segment "ROM2"
+;********************************************************************
+                .segment HOMESEGMENT
                 .reloc
 bmloc:                                  ;Physical Address of boot menu in ROM
                 
@@ -363,11 +365,11 @@ TITLESTRLEN     = (*-titlestr)
                 .byte $00       ;End of Menu Message
                 
 
-;******************************************************************
-; 
-; MegaFlash routines
 ;
-;******************************************************************
+; 
+; MegaFlash routines for Boot Menu
+;
+;
 
 ;--------------------------------------------------------------------
 ;Check if MegaFlash exists
@@ -429,4 +431,8 @@ rts1:           rts
 
                 .assert (*-BMRUN) <=512, error, "Boot Menu >512 bytes"
                 
-                
+;********************************************************************
+;
+; End of Boot Menu Code
+;
+;********************************************************************             
