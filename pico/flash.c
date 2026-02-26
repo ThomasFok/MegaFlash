@@ -1066,10 +1066,10 @@ void InitSpi(){
   gpio_set_drive_strength(MOSI_PIN, GPIO_DRIVE_STRENGTH_8MA);
 
   //disable pull resistors of output pins
-  gpio_set_pulls(CS0_PIN, false,false);
-  gpio_set_pulls(CS1_PIN, false,false);
-  gpio_set_pulls(SCK_PIN, false,false);
-  gpio_set_pulls(MOSI_PIN,false,false);
+  gpio_disable_pulls(CS0_PIN);
+  gpio_disable_pulls(CS1_PIN);
+  gpio_disable_pulls(SCK_PIN);
+  gpio_disable_pulls(MOSI_PIN);
 
   //Set GPIO functions
   gpio_set_function(SCK_PIN,  GPIO_FUNC_SPI);
@@ -1080,26 +1080,27 @@ void InitSpi(){
   spi_set_format(spi0,   // SPI instance
                  8,      // Number of bits per transfer
                  0,      // Polarity (CPOL)
-                 1,      // Phase (CPHA)  (Mode 3)
+                 1,      // Phase (CPHA)  (Mode 1)
                  SPI_MSB_FIRST);
-          
-   //Workaround of Hardware bug when in Mode 3
-   //SCLK is low until first transmission
-   //Do a dummy read to set SCLK high
+  //According to Winbond datasheet, their chips can work in SPI mode 0 or 3.
+  //Test shows that they work in mode 0,1 or 3 if the speed is <=25MHz
+  //We want to run SPI at high clock speed such as 75MHz. At that speed,
+  //only mode 1 works.
+  
+   //Do a dummy read to make sure the clock pin is at
+   //correct level.
    uint8_t dummy;
    spi_read_blocking(spi0, REPEATED_TX_DATA, &dummy, 1);
    
   //
-  //Notes about SPI Mode of Pico
+  //Notes about /CS pin
   //
-  //SPI Mode 0: CPOL=0, CPHA=1
-  //The clock signal is low when idle. The /CS is deasserted and reasserted 
-  //after each byte if /CS is controlled by SPI. i.e. a pulse after each byte.
+  //There is a concern that the /CS is deasserted between each
+  //character sent. i.e. A pulse after each byte.
+  //To avoid potential problem, /CS pin is controlled manually
   //
-  //SPI Mode 3: CPOL=1, CPHA=1
-  //The clock signal is high when idle. The /CS is asserted during entire 
-  //data transfer if /CS is controlled by SPI.
-  // 
+  //Reference: https://forums.raspberrypi.com/viewtopic.php?t=322617
+  //
 }
 
 //////////////////////////////////////////////////////
@@ -1279,6 +1280,10 @@ void InitFlash() {
   
   //Set SPI Speed to SPI_SPEED_FINAL
   spi_set_baudrate(spi0, SPI_SPEED_FINAL);
+  
+  //Flash Chip is present.
+  //Disable the pull resistor for maximum data transmission speed
+  gpio_disable_pulls(MISO_PIN);
 }
 
 //******************************************************************
