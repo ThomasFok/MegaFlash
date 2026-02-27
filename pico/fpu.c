@@ -117,22 +117,22 @@ double_ui64 fac, arg, result;
 
 
 /////////////////////////////////////////////////////////////
-// Convert FAC from data buffer to double and store it
+// Convert FAC from source data buffer to double and store it
 // to fac global variable
 //
-// Input: Pointer to data buffer
+// Input: Pointer to source data buffer
 //
-static void __no_inline_not_in_flash_func(LoadFAC)(uint8_t *data) {
+static void __no_inline_not_in_flash_func(LoadFAC)(const uint8_t *src) {
   //
   //Convert FAC
   //
   fac.ix = 0; //Set fac to 0
-  uint16_t exp = (uint16_t)data[FACEXP];
+  uint16_t exp = (uint16_t)src[FACEXP];
 
   //No further processing needed if exp==0 (It means fac is zero.)
   if (exp != 0) {
     //Sign bit
-    if (data[FACSIGN] & 0x80) fac.ix |= 1ull << 11; //Set sign bit to 1, leave 11-bit for storing exponent
+    if (src[FACSIGN] & 0x80) fac.ix |= 1ull << 11; //Set sign bit to 1, leave 11-bit for storing exponent
 
     //Exponent adjustment
     // e =  e -0x80 + 1023 -1
@@ -147,23 +147,23 @@ static void __no_inline_not_in_flash_func(LoadFAC)(uint8_t *data) {
   
     //Shift 7-bit mantissa byte 1
     fac.ix<<= 7;
-    fac.ix |= (data[FACMANTISSA1] & 0x7f);  //Remove the most significant bit, which is implied in double format
+    fac.ix |= (src[FACMANTISSA1] & 0x7f);  //Remove the most significant bit, which is implied in double format
 
     //Mantissa byte 2
     fac.ix<<= 8;  
-    fac.ix |= data[FACMANTISSA2];
+    fac.ix |= src[FACMANTISSA2];
 
     //Mantissa byte 3
     fac.ix<<= 8;  
-    fac.ix |= data[FACMANTISSA3];
+    fac.ix |= src[FACMANTISSA3];
 
     //Mantissa byte 4
     fac.ix<<= 8;  
-    fac.ix |= data[FACMANTISSA4];
+    fac.ix |= src[FACMANTISSA4];
 
     //FAC Extension
     fac.ix<<= 8;  
-    fac.ix |= data[FACEXT];
+    fac.ix |= src[FACEXT];
 
     //Shift-in 13 zero bits
     fac.ix <<= 13;
@@ -171,22 +171,22 @@ static void __no_inline_not_in_flash_func(LoadFAC)(uint8_t *data) {
 }
 
 /////////////////////////////////////////////////////////////
-// Convert ARG from data buffer to double and store it
+// Convert ARG from source data buffer to double and store it
 // to arg global variable
 //
-// Input: Pointer to data buffer
+// Input: Pointer to source data buffer
 //
-static void __no_inline_not_in_flash_func(LoadARG)(uint8_t *data) {
+static void __no_inline_not_in_flash_func(LoadARG)(const uint8_t *src) {
   //
   //Convert ARG
   //
   arg.ix = 0;  
-  uint16_t exp = (uint16_t)data[ARGEXP];
+  uint16_t exp = (uint16_t)src[ARGEXP];
 
   //No further processing needed if exp==0
   if (exp != 0) {
     //Sign bit
-    if (data[ARGSIGN] & 0x80) arg.ix |= 1ull << 11; //Set sign bit to 1, leave 11-bit for storing exponent
+    if (src[ARGSIGN] & 0x80) arg.ix |= 1ull << 11; //Set sign bit to 1, leave 11-bit for storing exponent
 
     //Shift in Exponent
     exp += 894;
@@ -194,19 +194,19 @@ static void __no_inline_not_in_flash_func(LoadARG)(uint8_t *data) {
 
     //Shift in 7-bit mantissa byte 1
     arg.ix<<= 7;
-    arg.ix |= (data[ARGMANTISSA1] & 0x7f);  //Remove the most significant bit, which is implied in double format
+    arg.ix |= (src[ARGMANTISSA1] & 0x7f);  //Remove the most significant bit, which is implied in double format
 
     //Mantissa byte 2
     arg.ix<<= 8;  
-    arg.ix |= data[ARGMANTISSA2];
+    arg.ix |= src[ARGMANTISSA2];
 
     //Mantissa byte 3
     arg.ix<<= 8;  
-    arg.ix |= data[ARGMANTISSA3];
+    arg.ix |= src[ARGMANTISSA3];
 
     //Mantissa byte 4
     arg.ix<<= 8;  
-    arg.ix |= data[ARGMANTISSA4];
+    arg.ix |= src[ARGMANTISSA4];
 
     //Shift-in 13+8 zero bits
     arg.ix<<= 13+8;
@@ -214,21 +214,21 @@ static void __no_inline_not_in_flash_func(LoadARG)(uint8_t *data) {
 }
 
 /////////////////////////////////////////////////////////////
-// Convert Both FAC and ARG from data buffer to double and 
-// store them to fac and arg global variables
+// Convert Both FAC and ARG from source data buffer to double 
+// and store them to fac and arg global variables
 //
-// Input: Pointer to data buffer
+// Input: Pointer to source data buffer
 //
-static void __no_inline_not_in_flash_func(LoadFAC_ARG)(uint8_t *data) {
-  LoadFAC(data);
-  LoadARG(data);
+static void __no_inline_not_in_flash_func(LoadFAC_ARG)(const uint8_t *src) {
+  LoadFAC(src);
+  LoadARG(src);
 }
 
 /////////////////////////////////////////////////////////////
 // Convert result in double format to MBF and store
 // the result in dest buffer. The first byte is error code.
 //
-// Input: Pointer to data buffer
+// Input: Pointer to dest buffer
 //
 static void __no_inline_not_in_flash_func(StoreResult)(uint8_t *dest) {
   //Clear Error Flag
@@ -312,23 +312,23 @@ static void __no_inline_not_in_flash_func(StoreResult)(uint8_t *dest) {
 // 4) If there is carry, add one to FAC.EXP and shift mantissa right
 // 5) If FAC.EXP overflow, show OVERFLOW ERROR
 //
-static uint8_t __no_inline_not_in_flash_func(RoundFAC)(uint8_t *dataBuffer) {
+static uint8_t __no_inline_not_in_flash_func(RoundFAC)(uint8_t *srcdest) {
   //Do nothing if FAC Ext MSB is 0
-  if ((dataBuffer[FACEXT]&0x80)==0) {
+  if ((srcdest[FACEXT]&0x80)==0) {
     return 0; //No Error
   }
   
   //Do nothing if FAC Exp = 0
-  uint8_t exp = dataBuffer[FACEXP];
+  uint8_t exp = srcdest[FACEXP];
   if (exp==0) {
     return 0; //No Error
   }
   
   //Assemble Mantissa
-  uint32_t mantissa = dataBuffer[FACMANTISSA1]<<24 |
-                      dataBuffer[FACMANTISSA2]<<16 |
-                      dataBuffer[FACMANTISSA3]<<8  |
-                      dataBuffer[FACMANTISSA4];
+  uint32_t mantissa = srcdest[FACMANTISSA1]<<24 |
+                      srcdest[FACMANTISSA2]<<16 |
+                      srcdest[FACMANTISSA3]<<8  |
+                      srcdest[FACMANTISSA4];
   
   //Add 1 to mantissa
   ++mantissa;
@@ -342,18 +342,18 @@ static uint8_t __no_inline_not_in_flash_func(RoundFAC)(uint8_t *dataBuffer) {
   
   //If exp=0, overflow error!
   if (exp==0) {
-    dataBuffer[RESERROR] = OVERFLOWERROR;
-    memset(dataBuffer+1, 0, 7);
+    srcdest[RESERROR] = OVERFLOWERROR;
+    memset(srcdest+1, 0, 7);
     return OVERFLOWERROR;
   }
   
   //Write mantissa and exp back
-  dataBuffer[FACEXT] = 0;   //The original implementation sets FAC Extension to 0
-  dataBuffer[FACMANTISSA4] = mantissa; mantissa>>=8;
-  dataBuffer[FACMANTISSA3] = mantissa; mantissa>>=8;  
-  dataBuffer[FACMANTISSA2] = mantissa; mantissa>>=8;
-  dataBuffer[FACMANTISSA1] = mantissa;
-  dataBuffer[FACEXP] = exp;
+  srcdest[FACEXT] = 0;   //The original implementation sets FAC Extension to 0
+  srcdest[FACMANTISSA4] = mantissa; mantissa>>=8;
+  srcdest[FACMANTISSA3] = mantissa; mantissa>>=8;  
+  srcdest[FACMANTISSA2] = mantissa; mantissa>>=8;
+  srcdest[FACMANTISSA1] = mantissa;
+  srcdest[FACEXP] = exp;
                       
   return 0; //No Error
 }
@@ -363,13 +363,13 @@ static uint8_t __no_inline_not_in_flash_func(RoundFAC)(uint8_t *dataBuffer) {
 //
 // Test program shows that the performance gain is very minor.
 //
-// Input: Pointer to data buffer
+// Input: Pointer to parameter buffer
 //
-void fadd(uint8_t *dataBuffer) {
-  LoadFAC_ARG(dataBuffer);
+void fadd(uint8_t *paramBuffer) {
+  LoadFAC_ARG(paramBuffer);
   result.d = arg.d + fac.d;
   DEBUG_PRINT_ALL("fadd"); 
-  StoreResult(dataBuffer);  
+  StoreResult(paramBuffer);  
 }
 
 /////////////////////////////////////////////////////////////
@@ -378,25 +378,25 @@ void fadd(uint8_t *dataBuffer) {
 //
 // Test program shows that the performance gain is very minor.
 //
-// Input: Pointer to data buffer
+// Input: Pointer to parameter buffer
 //
-void fsub(uint8_t *dataBuffer) {
-  LoadFAC_ARG(dataBuffer);
+void fsub(uint8_t *paramBuffer) {
+  LoadFAC_ARG(paramBuffer);
   result.d = arg.d - fac.d;
   DEBUG_PRINT_ALL("fsub"); 
-  StoreResult(dataBuffer);  
+  StoreResult(paramBuffer);  
 }
 
 /////////////////////////////////////////////////////////////
 // FMUL - ARG * FAC
 //
-// Input: Pointer to data buffer
+// Input: Pointer to parameter buffer
 //
-void __no_inline_not_in_flash_func(fmul)(uint8_t *dataBuffer) {
-  LoadFAC_ARG(dataBuffer);
+void __no_inline_not_in_flash_func(fmul)(uint8_t *paramBuffer) {
+  LoadFAC_ARG(paramBuffer);
   result.d = arg.d * fac.d;
   DEBUG_PRINT_ALL("fmul");
-  StoreResult(dataBuffer);
+  StoreResult(paramBuffer);
 }
 
 /////////////////////////////////////////////////////////////
@@ -404,26 +404,26 @@ void __no_inline_not_in_flash_func(fmul)(uint8_t *dataBuffer) {
 //
 // The original implementation round FAC before calculation.
 //
-// Input: Pointer to data buffer
+// Input: Pointer to parameter buffer
 //
-void __no_inline_not_in_flash_func(fdiv)(uint8_t *dataBuffer) {
-  if (RoundFAC(dataBuffer)!=0) {
+void __no_inline_not_in_flash_func(fdiv)(uint8_t *paramBuffer) {
+  if (RoundFAC(paramBuffer)!=0) {
     DEBUG_PRINTF("fdiv: RoundFAC Overflow Error\n");
     return;
   }  
-  LoadFAC_ARG(dataBuffer);
+  LoadFAC_ARG(paramBuffer);
   if (fac.d != 0.0) { 
     result.d = arg.d / fac.d;
     DEBUG_PRINT_ALL("fdiv"); 
-    StoreResult(dataBuffer);
-    dataBuffer[RESEXT] &= 0b11000000;
+    StoreResult(paramBuffer);
+    paramBuffer[RESEXT] &= 0b11000000;
     //Note: From Applesoft Source Code, the lowest 6-bits of
     //FAC Extension are always zero. So, we clear those bits
     //so that we have the same result as Applesoft.
   } else {
     DEBUG_PRINTF("fdiv:Division by Zero error\n");
-    dataBuffer[RESERROR] = DIV0ERROR;
-    memset(dataBuffer+1, 0, 7);
+    paramBuffer[RESERROR] = DIV0ERROR;
+    memset(paramBuffer+1, 0, 7);
   }
 }
 
@@ -432,17 +432,17 @@ void __no_inline_not_in_flash_func(fdiv)(uint8_t *dataBuffer) {
 //
 // The original implementation round FAC before calculation.
 //
-// Input: Pointer to data buffer
+// Input: Pointer to parameter buffer
 //
-void fsin(uint8_t *dataBuffer) {
-  if (RoundFAC(dataBuffer)!=0) {
+void fsin(uint8_t *paramBuffer) {
+  if (RoundFAC(paramBuffer)!=0) {
     DEBUG_PRINTF("fsin: RoundFAC Overflow Error\n");
     return;
   }  
-  LoadFAC(dataBuffer);
+  LoadFAC(paramBuffer);
   result.d = sin(fac.d);
   DEBUG_PRINT_FAC_RES("sin");
-  StoreResult(dataBuffer);
+  StoreResult(paramBuffer);
 }
 
 /////////////////////////////////////////////////////////////
@@ -450,23 +450,23 @@ void fsin(uint8_t *dataBuffer) {
 //
 // The original implementation round FAC before calculation.
 //
-// Input: Pointer to data buffer
+// Input: Pointer to parameter buffer
 //
-void fcos(uint8_t *dataBuffer) {
-  if (RoundFAC(dataBuffer)!=0) {
+void fcos(uint8_t *paramBuffer) {
+  if (RoundFAC(paramBuffer)!=0) {
     DEBUG_PRINTF("fcos: RoundFAC Overflow Error\n");
     return;
   }    
-  LoadFAC(dataBuffer);
+  LoadFAC(paramBuffer);
   result.d = cos(fac.d);
   DEBUG_PRINT_FAC_RES("cos");
-  StoreResult(dataBuffer);
+  StoreResult(paramBuffer);
 }
 
 /////////////////////////////////////////////////////////////
 // FTAN - tan(fac)
 //
-// Input: Pointer to data buffer
+// Input: Pointer to parameter buffer
 //
 /*******************************************************
 All MBF shown is in this format
@@ -496,10 +496,10 @@ So, in order to have the same behaviour as real Apple II, this
 function returns DIV0ERROR when the absolute value of the result
 is greater than 1.8995e+09
 ********************************************************/
-void ftan(uint8_t *dataBuffer) {
+void ftan(uint8_t *paramBuffer) {
   static const double limit = 1.8995e+09;
   
-  LoadFAC(dataBuffer);
+  LoadFAC(paramBuffer);
   result.d = tan(fac.d);
   
   //If result is greater than a certain limit, set it to infinity
@@ -507,51 +507,51 @@ void ftan(uint8_t *dataBuffer) {
   if (fabs(result.d)>limit) result.d = infinity();
   
   DEBUG_PRINT_FAC_RES("tan");
-  StoreResult(dataBuffer);
+  StoreResult(paramBuffer);
 
   //tan() is undefined at pi/2. Applesoft reports it as Division by Zero
   //error, not Illegal Quantity Error. So, if error code is not 0,
   //set it to Division by Zero error.
-  if (dataBuffer[RESERROR]!=0) {
+  if (paramBuffer[RESERROR]!=0) {
     DEBUG_PRINTF("tan: Division by Zero error\n");
-    dataBuffer[RESERROR] = DIV0ERROR;
+    paramBuffer[RESERROR] = DIV0ERROR;
   }
 }
 
 /////////////////////////////////////////////////////////////
 // FATN - atan(fac)
 //
-// Input: Pointer to data buffer
+// Input: Pointer to parameter buffer
 //
-void fatn(uint8_t *dataBuffer) {
-  LoadFAC(dataBuffer);
+void fatn(uint8_t *paramBuffer) {
+  LoadFAC(paramBuffer);
   result.d = atan(fac.d);
   DEBUG_PRINT_FAC_RES("atn");
-  StoreResult(dataBuffer);
+  StoreResult(paramBuffer);
 }
 
 /////////////////////////////////////////////////////////////
 // FLOG - log(fac)
 //
-// Input: Pointer to data buffer
+// Input: Pointer to parameter buffer
 //
-void flog(uint8_t *dataBuffer) {
-  LoadFAC(dataBuffer);
+void flog(uint8_t *paramBuffer) {
+  LoadFAC(paramBuffer);
   result.d = log(fac.d);
   DEBUG_PRINT_FAC_RES("log");
-  StoreResult(dataBuffer);
+  StoreResult(paramBuffer);
 }
 
 /////////////////////////////////////////////////////////////
 // FEXP - exp(fac)
 //
-// Input: Pointer to data buffer
+// Input: Pointer to parameter buffer
 //
-void fexp(uint8_t *dataBuffer) {
-  LoadFAC(dataBuffer);
+void fexp(uint8_t *paramBuffer) {
+  LoadFAC(paramBuffer);
   result.d = exp(fac.d);
   DEBUG_PRINT_FAC_RES("exp");
-  StoreResult(dataBuffer);
+  StoreResult(paramBuffer);
 }
 
 /////////////////////////////////////////////////////////////
@@ -559,17 +559,17 @@ void fexp(uint8_t *dataBuffer) {
 //
 // The original implementation round FAC before calculation.
 //
-// Input: Pointer to data buffer
+// Input: Pointer to parameter buffer
 //
-void fsqr(uint8_t *dataBuffer) {
-  if (RoundFAC(dataBuffer)!=0) {
+void fsqr(uint8_t *paramBuffer) {
+  if (RoundFAC(paramBuffer)!=0) {
     DEBUG_PRINTF("fsqr: RoundFAC Overflow Error\n");
     return;
   }    
-  LoadFAC(dataBuffer);
+  LoadFAC(paramBuffer);
   result.d = sqrt(fac.d);
   DEBUG_PRINT_FAC_RES("sqr");
-  StoreResult(dataBuffer);
+  StoreResult(paramBuffer);
 }
 
 
@@ -621,18 +621,18 @@ static int __no_inline_not_in_flash_func(formatApplesoftString)(double d, char* 
 /////////////////////////////////////////////////////////////
 // FOUT - Format FAC as a string
 //
-// Input: Pointer to data buffer
+// Input: Pointer to parameter buffer
 //
 // Parameter Output: 
 //   First byte is the length of the string
 //   The following is a NULL-terminated string
 //
-void __no_inline_not_in_flash_func(fout)(uint8_t *dataBuffer) {
-  LoadFAC(dataBuffer);  
+void __no_inline_not_in_flash_func(fout)(uint8_t *paramBuffer) {
+  LoadFAC(paramBuffer);  
   DEBUG_PRINT_FAC("fout");
-  dataBuffer[0] = formatApplesoftString(fac.d, dataBuffer+1); //return the length of output string
-  DEBUG_PRINTF("buf=%s\n",dataBuffer+1);
-  assert(dataBuffer[0]==strlen(dataBuffer+1));  //Make sure length is correct
+  paramBuffer[0] = formatApplesoftString(fac.d, paramBuffer+1); //return the length of output string
+  DEBUG_PRINTF("buf=%s\n",paramBuffer+1);
+  assert(paramBuffer[0]==strlen(paramBuffer+1));  //Make sure length is correct
 }
 
 
