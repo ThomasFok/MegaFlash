@@ -64,6 +64,7 @@ CMD_FLOG                =       $37
 CMD_FEXP                =       $38
 CMD_FSQR                =       $39
 CMD_FOUT                =       $3A
+CMD_FSUB								=				$3B
 
 CMD_RESETTIMER_US       =       $40
 CMD_GETTIMER_US         =       $41

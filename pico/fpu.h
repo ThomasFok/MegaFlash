@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 void fadd(uint8_t *dataBuffer);
+void fsub(uint8_t *dataBuffer);
 void fmul(uint8_t *dataBuffer);
 void fdiv(uint8_t *dataBuffer);
 void fsin(uint8_t *dataBuffer);

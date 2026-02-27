@@ -373,6 +373,21 @@ void fadd(uint8_t *dataBuffer) {
 }
 
 /////////////////////////////////////////////////////////////
+// FSUB - ARG - FAC
+// Added on 27-Feb-2026 V1.1.8
+//
+// Test program shows that the performance gain is very minor.
+//
+// Input: Pointer to data buffer
+//
+void fsub(uint8_t *dataBuffer) {
+  LoadFAC_ARG(dataBuffer);
+  result.d = arg.d - fac.d;
+  DEBUG_PRINT_ALL("fsub"); 
+  StoreResult(dataBuffer);  
+}
+
+/////////////////////////////////////////////////////////////
 // FMUL - ARG * FAC
 //
 // Input: Pointer to data buffer

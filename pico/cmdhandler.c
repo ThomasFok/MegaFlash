@@ -1637,6 +1637,11 @@ void __no_inline_not_in_flash_func(DoCommand)(const uint32_t command) {
       ResetParamPointer();
       ClearError();    
       break;      
+    case CMD_FSUB:
+      fsub(parameterBuffer);
+      ResetParamPointer();
+      ClearError();      
+      break;      
     case CMD_RESETTIMER_US:
       DoResetTimer_us();
       break;

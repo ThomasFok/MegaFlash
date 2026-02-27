@@ -56,6 +56,7 @@
 #define CMD_FEXP                0x38
 #define CMD_FSQR                0x39
 #define CMD_FOUT                0x3a
+#define CMD_FSUB                0x3b
 
 #define CMD_RESETTIMER_US       0x40
 #define CMD_GETTIMER_US         0x41
