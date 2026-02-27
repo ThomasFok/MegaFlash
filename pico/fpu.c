@@ -312,23 +312,23 @@ static void __no_inline_not_in_flash_func(StoreResult)(uint8_t *dest) {
 // 4) If there is carry, add one to FAC.EXP and shift mantissa right
 // 5) If FAC.EXP overflow, show OVERFLOW ERROR
 //
-static uint8_t __no_inline_not_in_flash_func(RoundFAC)(uint8_t *srcdest) {
+static uint8_t __no_inline_not_in_flash_func(RoundFAC)(uint8_t *fac) {
   //Do nothing if FAC Ext MSB is 0
-  if ((srcdest[FACEXT]&0x80)==0) {
+  if ((fac[FACEXT]&0x80)==0) {
     return 0; //No Error
   }
   
   //Do nothing if FAC Exp = 0
-  uint8_t exp = srcdest[FACEXP];
+  uint8_t exp = fac[FACEXP];
   if (exp==0) {
     return 0; //No Error
   }
   
   //Assemble Mantissa
-  uint32_t mantissa = srcdest[FACMANTISSA1]<<24 |
-                      srcdest[FACMANTISSA2]<<16 |
-                      srcdest[FACMANTISSA3]<<8  |
-                      srcdest[FACMANTISSA4];
+  uint32_t mantissa = fac[FACMANTISSA1]<<24 |
+                      fac[FACMANTISSA2]<<16 |
+                      fac[FACMANTISSA3]<<8  |
+                      fac[FACMANTISSA4];
   
   //Add 1 to mantissa
   ++mantissa;
@@ -342,18 +342,18 @@ static uint8_t __no_inline_not_in_flash_func(RoundFAC)(uint8_t *srcdest) {
   
   //If exp=0, overflow error!
   if (exp==0) {
-    srcdest[RESERROR] = OVERFLOWERROR;
-    memset(srcdest+1, 0, 7);
+    fac[RESERROR] = OVERFLOWERROR;
+    memset(fac+1, 0, 7);
     return OVERFLOWERROR;
   }
   
   //Write mantissa and exp back
-  srcdest[FACEXT] = 0;   //The original implementation sets FAC Extension to 0
-  srcdest[FACMANTISSA4] = mantissa; mantissa>>=8;
-  srcdest[FACMANTISSA3] = mantissa; mantissa>>=8;  
-  srcdest[FACMANTISSA2] = mantissa; mantissa>>=8;
-  srcdest[FACMANTISSA1] = mantissa;
-  srcdest[FACEXP] = exp;
+  fac[FACEXT] = 0;   //The original implementation sets FAC Extension to 0
+  fac[FACMANTISSA4] = mantissa; mantissa>>=8;
+  fac[FACMANTISSA3] = mantissa; mantissa>>=8;  
+  fac[FACMANTISSA2] = mantissa; mantissa>>=8;
+  fac[FACMANTISSA1] = mantissa;
+  fac[FACEXP] = exp;
                       
   return 0; //No Error
 }
