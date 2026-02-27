@@ -162,10 +162,10 @@ void LoadAllConfigs() {
 //
 // Output: success
 //
-bool SaveWifiSettings(void *settingPtr) {
+bool SaveWifiSettings(const uint8_t *settingPtr) {
   //
   //Check source data version
-  WifiSetting_t *src = (WifiSetting_t*)settingPtr;
+  const WifiSetting_t *src = (WifiSetting_t*)settingPtr;
   if (src->version!=WIFISETTINGVER) {
     ERROR_PRINTF("SaveWifiSettings() version not recognized\n");
     return false;
@@ -216,10 +216,10 @@ bool SaveWifiSettings(void *settingPtr) {
 //
 // Output: success
 //
-bool SaveUserSettings(void *settingPtr) {
+bool SaveUserSettings(const uint8_t *settingPtr) {
   //
   //Check source data version
-  UserSettings_t *src = (UserSettings_t*)settingPtr;
+  const UserSettings_t *src = (UserSettings_t*)settingPtr;
   if (src->version!=USERSETTINGSVER || src->timezoneidver!=TIMEZONEIDVER) {
     ERROR_PRINTF("SaveUserSettings() version or timezoneidver not recognized\n");
     return false;  

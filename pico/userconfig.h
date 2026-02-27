@@ -99,8 +99,8 @@ uint8_t GetFlashdriveEnableFlag();
 
 void LoadAllConfigs();
 void SaveConfigs();
-bool SaveUserSettings(void *settingPtr);
-bool SaveWifiSettings(void *settingPtr);
+bool SaveUserSettings(const uint8_t *settingPtr);
+bool SaveWifiSettings(const uint8_t *settingPtr);
 void GetUserSettings(uint8_t* dest);
 void EraseUserSettingsFromFlash();
 void EraseWifiSettingsFromFlash();
