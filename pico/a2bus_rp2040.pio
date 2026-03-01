@@ -117,17 +117,14 @@ cycle_end:
 
 
 % c-sdk {
-static void a2bus_program_init(PIO pio,uint sm,uint offset) {
+static void a2bus_program_init(const PIO pio,const uint sm,const uint offset,const uint sys_clk_hz) {
   //setup wrap target and return the state machine config struct
   pio_sm_config c = a2bus_program_get_default_config(offset);
 
-	//The timing is for 125MHz clock speed
-	//Setup clock divider if system speed > 125MHz
-  #if SYS_CLK_MHZ>125
-  sm_config_set_clkdiv(&c, SYS_CLK_MHZ/125.0f);
-	#elif SYS_CLK_MHZ<125
-	#error This PIO program is designed for SYS_CLK_MHZ>=125
-  #endif
+  //The timing is for 125MHz clock speed
+  //Setup clock divider if system speed>125MHz
+  if      (sys_clk_hz>125*1000000) sm_config_set_clkdiv(&c, (float)sys_clk_hz/125e6);
+  else if (sys_clk_hz<125*1000000) panic("This PIO program is designed for sys clk>=125MHz");
 
   //IN instruction PINS mapping
   sm_config_set_in_pins(&c, A2BUS_BASE);

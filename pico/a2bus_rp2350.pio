@@ -197,9 +197,14 @@ static void a2bus_gpio_init(PIO pio) {
 //
 // Initalize a2buslistner
 //
-static void a2buslistener_program_init(PIO pio,uint sm,uint offset) {
+static void a2buslistener_program_init(PIO pio,uint sm,uint offset,const uint sys_clk_hz) {
   //setup wrap target and return the state machine config struct
   pio_sm_config c = a2buslistener_program_get_default_config(offset);
+
+  //The timing is for 150MHz clock speed
+  //Setup clock divider if system speed>150MHz
+  if      (sys_clk_hz>150*1000000) sm_config_set_clkdiv(&c, (float)sys_clk_hz/150e6);
+  else if (sys_clk_hz<150*1000000) panic("This PIO program is designed for sys clk>=150MHz");
 
   //IN instruction PINS mapping
   sm_config_set_in_pins(&c, A2BUS_BASE);
@@ -223,17 +228,14 @@ static void a2buslistener_program_init(PIO pio,uint sm,uint offset) {
 //
 // Initalize a2bus
 //
-static void a2bus_program_init(PIO pio,uint sm,uint offset) {
+static void a2bus_program_init(const PIO pio,const uint sm,const uint offset,const uint sys_clk_hz) {
   //setup wrap target and return the state machine config struct
   pio_sm_config c = a2bus_program_get_default_config(offset);
 
-	//The timing is for 150MHz clock speed
-	//Setup clock divider if system speed > 150MHz
-  #if SYS_CLK_MHZ>150
-  sm_config_set_clkdiv(&c, SYS_CLK_MHZ/150.0f);
-	#elif SYS_CLK_MHZ<150
-	#error This PIO program is designed for SYS_CLK_MHZ>=150	
-  #endif
+  //The timing is for 150MHz clock speed
+  //Setup clock divider if system speed>150MHz
+  if      (sys_clk_hz>150*1000000) sm_config_set_clkdiv(&c, (float)sys_clk_hz/150e6);
+  else if (sys_clk_hz<150*1000000) panic("This PIO program is designed for sys clk>=150MHz");
 
   //IN instruction PINS mapping
   sm_config_set_in_pins(&c, A2BUS_BASE);
