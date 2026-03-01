@@ -374,13 +374,13 @@ void GetDeviceInfoString(char* dest) {
   #ifndef NDEBUG
   dest += sprintf(dest," (DEBUG)");
   #endif
-  dest += sprintf(dest,"\n\rFirmware Build Timestamp = %s %s\n\r",__DATE__,__TIME__);
+  dest += sprintf(dest,"\n\rPico Firmware Build Timestamp = %s %s\n\r",__DATE__,__TIME__);
   dest += sprintf(dest,"Pico SDK Version = %s\n\r",  PICO_SDK_VERSION_STRING);
   
   //
   // Flash Information
   //
-  uint32_t flashSize = GetFlashSize();
+  const uint32_t flashSize = GetFlashSize();
   dest += sprintf(dest,"Total Flash Capacity = %dMB\n\r", flashSize);
   dest += sprintf(dest,"Flash Chip #0 JEDEC ID = %Xh\n\r", ReadJEDECID(0));
   dest += sprintf(dest,"Flash Chip #1 JEDEC ID = %Xh\n\r", ReadJEDECID(1));
