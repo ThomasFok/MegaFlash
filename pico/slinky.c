@@ -11,8 +11,10 @@
 /**********************************************************************
 This module emulates a Slinky Card using internal RAM.
 
-On RP2040, the size of Slinky is 128kB. But the minimum size of actual 
-Slinky is 256kB. The /RAM4 drive is not created when booting from ProDOS.
+RP2040 only has 256kB of RAM. So, the size of Slinky is limited to 128kB.
+Since the minimum size of an acutal Slinky is 256kB, a 128kB Slinky may 
+cause compatibility problem. For example, the /RAM4 drive is not created
+when booting from ProDOS. So, currently, Slinky is disabled on RP2040
 
 On RP2350, the size is 256kB.
 
@@ -31,16 +33,13 @@ extern union {
 //--------------------------------------------------------------
 
 
-
+////////////////////////////////////////////////////////////////////
+//Initialize Slinky RAM Disk
+//
 void SlinkyInit() {
   assert(SLINKY_SIZE<=GetRamdiskSize());  //Make sure slinky size fits in RAM Disk Data Buffer
-  const uint32_t initvalue = 0x00f00000;
-  registers.i32[0] = initvalue;
-  UpdateMegaFlashRegisters(0,initvalue);
-  UpdateMegaFlashRegisters(1,initvalue);
-  UpdateMegaFlashRegisters(2,initvalue);
-  UpdateMegaFlashRegisters(3,initvalue);  
-  EraseRamdiskQuick(); 
+  EraseRamdiskQuick();  //It erases the first 3 blocks of Ramdisk. 
+  
   //We don't format and provide a boot block on the Slinky RamDisk so that
   //it behaves like a real slinky card.
   //The stock firmware creates the root directory structure on Power Up
@@ -48,6 +47,7 @@ void SlinkyInit() {
   //is formatted by Utility like Copy II Plus.  
 }
 
+///////////////////////////////////////////////////////////////////
 //In Apple IIc Memory Expansion Card, address bus a3,a2 are
 //not connected. So, $C0C0, $C0C4, $C0C8 and $C0CC are the
 //same. We try to implement the same behaviour.
@@ -67,15 +67,24 @@ void __no_inline_not_in_flash_func(BusLoopSlinky)() {
     STATE200, //and so on
     STATE2003,
     STATE20031
-  } state = STATENULL;
+  } state = STATENULL;  //set initial state to STATENULL
   
   //Slinky Data Buffer
   uint8_t* slinky_data = GetRamdiskDataPointer();
+
+  //Indicates the first run of do-while loop
+  bool firstRun = true;
   
   do {
-    uint32_t busdata = GetAppleBusBlocking();    
-    uint32_t addr = busdata & 0b0011;     //Ignore A3-A2
-    uint32_t data = (busdata >>5) & 0xff;
+    //Jump to update_register to initialize Slinky addresses and data register
+    if (firstRun) {
+      firstRun = false;
+      goto update_registers;
+    }
+    
+    const uint32_t busdata = GetAppleBusBlocking();    
+    const uint32_t addr = busdata & 0b0011;     //Ignore A3-A2
+    const uint32_t data = (busdata >>5) & 0xff;
 
     if (busdata & READFLAG) {
       //6502 is reading from us   
@@ -101,7 +110,10 @@ void __no_inline_not_in_flash_func(BusLoopSlinky)() {
           else state=STATENULL;
           break;
         case STATE2003:
-          if (addr==1) state=STATE20031;
+          if (addr==1) {
+            state=STATE20031; //Activation sequence detected
+            continue;         //jump to end of do-while loop and exit the function
+          }
           else if (addr==2) state=STATE2;
           else state=STATENULL;
           break;          
@@ -137,6 +149,8 @@ void __no_inline_not_in_flash_func(BusLoopSlinky)() {
           continue; //No need to update MegaFlash registers if addr is not 0-3.
       }
     }
+    
+  update_registers:;
     //Update MegaFlash Registers
     uint32_t val = (slinky_addr.val < SLINKY_SIZE && slinky_data!=NULL) ? (slinky_data[slinky_addr.val]<<24) : (0xff<<24);
     val = val | 0xf00000 | slinky_addr.val;
