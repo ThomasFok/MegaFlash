@@ -84,19 +84,23 @@
   ;6502 is reading from us
   ;
 read_cycle:
-  mov isr, null [1]  	  ; Clear ISR. V4.1:Adding 1 delay improves compatibility with 74138 address decoder
+  mov isr, null [1]       ; Clear ISR. V4.1:Adding 1 delay improves compatibility with 74138 address decoder
  
   in pins, A2BUS_WIDTH  ; Read Apple Bus
   push noblock          ; Don't use auto-push since auto-push is blocking
    
   ;
   ;Wait until current cycle ends
-  ;	 
-  wait 0 gpio PHI0_GPIO  ;Doesn't work without this instruction
-                         ;PHI0 should goes low before nDEVSEL goes high
-                         ;Don't understand why it doesn't work without 
-                         ;this instruction. Don't bother to find out
-                         ;with scope.
+  ;      
+  wait 0 gpio PHI0_GPIO  ;Doesn't work reliably without this instruction.
+                         ;Scope shows that nDEVSEL goes HIGH and PHI0
+                         ;goes LOW at the same time.
+                         ;So, it should work without this instruction.
+                         ;The only explanation I can think of is that
+                         ;nDEVSEL goes low in the middle of a cycle.
+                         ;So, the prgram wrap to the beginning before
+                         ;the end of current cycle.
+                         ;But how can this happen??
 
   ; Wait until nDEVSEL_GPIO is inactive
   ; When the Apple II side is un-powered, both nDEVSEL and PHI0 is low
@@ -111,7 +115,7 @@ read_cycle:
 ;
 ; a2bus 
 ;
-; This state machine fulfill 6502 read requests.
+; This state machine fulfills 6502 read requests.
 ;
 ;/////////////////////////////////////////////////////////////////////
 
@@ -120,7 +124,7 @@ read_cycle:
 .side_set 1 opt
 
   mov pindirs, null  side 1     ;Switch pindirs to input
-	
+        
 .wrap_target
   wait 0 gpio nDEVSEL_GPIO      ; wait unti nDEVSEL is activated
   jmp PIN,read_cycle 
@@ -157,7 +161,7 @@ byte_select:                    ;Max loop 4 times
   jmp x--,byte_select
 
   ;Timing: Max 57 cycles or 380ns from nDEVSEL is activted
-  mov pindirs,~null  side 0     ;Switch pindirs to output	
+  mov pindirs,~null  side 0     ;Switch pindirs to output       
 
 cycle_end:
   wait 0 gpio PHI0_GPIO         ;wait until PHI0 goes low
@@ -172,20 +176,20 @@ cycle_end:
 // Set GPIO function to PIO and setup pull resistors
 //
 static void a2bus_gpio_init(PIO pio) {
-	//Enable PIO on GPIO pins
+  //Enable PIO on GPIO pins
   for (uint pin=A2BUS_BASE; pin<A2BUS_BASE+A2BUS_WIDTH; ++pin) {
     pio_gpio_init(pio, pin);
   }
 
-	//Enable Pull up resistor of Data Bus to avoid floating of transceiver input
-	for (uint pin=A2DBUS_BASE; pin<A2DBUS_BASE+8; ++pin) {
-		gpio_pull_up(pin);
-	}
+  //Enable Pull up resistor of Data Bus to avoid floating of transceiver input
+  for (uint pin=A2DBUS_BASE; pin<A2DBUS_BASE+8; ++pin) {
+    gpio_pull_up(pin);
+  }
 
-	//A2 and A3 must be pulled down to set the address at $C0C0-C0C3
-	//Note: On Rev1.0 and 1.1 PCB, A2 and A3 inputs are floating. 
-	gpio_set_pulls(A2ABUS_BASE+2, false, true); //Disable pull-up, Enable pull-down
-	gpio_set_pulls(A2ABUS_BASE+3, false, true); //Disable pull-up, Enable pull-down
+  //A2 and A3 must be pulled down to set the address at $C0C0-C0C3
+  //Note: On Rev1.0 and 1.1 PCB, A2 and A3 inputs are floating. 
+  gpio_pull_down(A2ABUS_BASE+2); 
+  gpio_pull_down(A2ABUS_BASE+3); 
   
   //GPIO: Configure PHI0, nDEVSEL and nPICOWR
   pio_gpio_init(pio,nDEVSEL_GPIO);
@@ -213,9 +217,9 @@ static void a2buslistener_program_init(PIO pio,uint sm,uint offset,const uint sy
   //autopush: false
   //push_threashold: 0
   sm_config_set_in_shift(&c, false, false, 0);
-	
+        
   //JMP instruction PIN mapping
-  sm_config_set_jmp_pin(&c, R_NW_GPIO); 	
+  sm_config_set_jmp_pin(&c, R_NW_GPIO);         
   
   //GPIO: Address Bus, RnW, Data bus as input
   pio_sm_set_consecutive_pindirs(pio, sm, A2BUS_BASE, A2BUS_WIDTH, false /*=in*/); 
