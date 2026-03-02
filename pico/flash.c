@@ -1247,6 +1247,13 @@ static void __no_inline_not_in_flash_func(WriteToFlashByDMA)(const uint8_t *srcB
   
   //tx should complete before rx
   dma_channel_wait_for_finish_blocking(rxChannel);
+  
+  //Note: RX DMA Channel is needed because when TX DMA Channel finishes,
+  //it means the data is transfered from memory to SPI. The last data 
+  //byte may not be completely sent out to the Flash. It may still be 
+  //in SPI of Pico. We want this function return only after all the data
+  //is sent.  We wait for completion of RX channel and it guarantee
+  //all the data is sent.
 }
 
 
