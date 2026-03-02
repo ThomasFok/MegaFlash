@@ -23,16 +23,6 @@ The slinky data buffer is shared with RAM Disk.
 ************************************************************************/
 
 
-
-//--------------------------------------------------------------
-//The definitions below must be the same as the ones in a2bus.c
-extern union {
-  uint8_t  r[16];     //Individual 8-bit registers
-  uint32_t i32[4];    //Chunks of 4 32-bit registers
-} registers;
-//--------------------------------------------------------------
-
-
 ////////////////////////////////////////////////////////////////////
 //Initialize Slinky RAM Disk
 //
@@ -53,6 +43,7 @@ void SlinkyInit() {
 //same. We try to implement the same behaviour.
 void __no_inline_not_in_flash_func(BusLoopSlinky)() {
   const uint32_t READFLAG = (1<<4);
+  //To store current slinky address
   union {
     uint8_t  byte[4];
     uint32_t val;
@@ -76,7 +67,7 @@ void __no_inline_not_in_flash_func(BusLoopSlinky)() {
   bool firstRun = true;
   
   do {
-    //Jump to update_register to initialize Slinky addresses and data register
+    //Jump to update_register to initialize Slinky addresses and data registers ($C0C0-$C0C3)
     if (firstRun) {
       firstRun = false;
       goto update_registers;
@@ -87,7 +78,9 @@ void __no_inline_not_in_flash_func(BusLoopSlinky)() {
     const uint32_t data = (busdata >>5) & 0xff;
 
     if (busdata & READFLAG) {
+      //
       //6502 is reading from us   
+      //
       
       //Activation
       switch(state) {
@@ -121,27 +114,33 @@ void __no_inline_not_in_flash_func(BusLoopSlinky)() {
           state = STATENULL;
       }
       
-      //Slinky
+      //Handle Slinky
       if (addr == 3) {
+        //add 1 to address when 6502 read data from us
         slinky_addr.val = (slinky_addr.val+1) & 0xfffff;  //Address is 20-bit
       } else {
         continue; //No need to update MegaFlash registers if addr is not 3.
       }
     } else {
+      //
       //6502 is writing to us
+      //
+      
+      //Reset activation state
       state = STATENULL;
       
+      //Handle Slinky
       switch(addr) {
-        case 0:
+        case 0: //address low byte
           slinky_addr.byte[0] = data;
           break;
-        case 1:
+        case 1: //address mid byte
           slinky_addr.byte[1] = data;
           break;
-        case 2:
+        case 2: //address high byte
           slinky_addr.byte[2] = data & 0x0f;    //Higher Nibble is ignored.
           break;
-        case 3:
+        case 3: //data register
           if (slinky_addr.val < SLINKY_SIZE && slinky_data!=NULL) slinky_data[slinky_addr.val] = data;
           slinky_addr.val = (slinky_addr.val+1) & 0xfffff;  //Address is 20-bit
           break;    
@@ -150,12 +149,11 @@ void __no_inline_not_in_flash_func(BusLoopSlinky)() {
       }
     }
     
+  //Update MegaFlash Registers  
   update_registers:;
-    //Update MegaFlash Registers
-    uint32_t val = (slinky_addr.val < SLINKY_SIZE && slinky_data!=NULL) ? (slinky_data[slinky_addr.val]<<24) : (0xff<<24);
-    val = val | 0xf00000 | slinky_addr.val;
     
-    registers.i32[0] = val;
+    uint32_t newval = (slinky_addr.val < SLINKY_SIZE && slinky_data!=NULL) ? (slinky_data[slinky_addr.val]<<24) : (0xff<<24); //data register value
+    newval |=  0xf00000 | slinky_addr.val; //address registers. High nibble of $C0C2 must be $F
     
     //When 6502 is reading the data register,
     //the address is increased by 1 automatically.
@@ -181,10 +179,10 @@ void __no_inline_not_in_flash_func(BusLoopSlinky)() {
 #endif    
 
     //Update all registers so that A3,A2 address lines are ignored.
-    UpdateMegaFlashRegisters(0,val);
-    UpdateMegaFlashRegisters(1,val);
-    UpdateMegaFlashRegisters(2,val);
-    UpdateMegaFlashRegisters(3,val);    
+    UpdateMegaFlashRegisters(0,newval);
+    UpdateMegaFlashRegisters(1,newval);
+    UpdateMegaFlashRegisters(2,newval);
+    UpdateMegaFlashRegisters(3,newval);    
   }while(state!=STATE20031);
   
   //Activation Sequence Detected.
