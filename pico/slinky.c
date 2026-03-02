@@ -149,35 +149,14 @@ void __no_inline_not_in_flash_func(BusLoopSlinky)() {
       }
     }
     
+  //
   //Update MegaFlash Registers  
+  //
   update_registers:;
     
     uint32_t newval = (slinky_addr.val < SLINKY_SIZE && slinky_data!=NULL) ? (slinky_data[slinky_addr.val]<<24) : (0xff<<24); //data register value
     newval |=  0xf00000 | slinky_addr.val; //address registers. High nibble of $C0C2 must be $F
     
-    //When 6502 is reading the data register,
-    //the address is increased by 1 automatically.
-    //The data pointed by the new address have to
-    //be sent to PIO.
-    //But it should happen after the PIO has completed
-    //the current 6502 read request.
-    //
-    //The irq 0 flag of PIO is to indicate that 
-    //PIO has not yet pulled the output value during
-    //a read cycle (Pico->6502).
-    //
-    //So, if rx fifo is empty AND irq 0 is set,
-    //it means the current read cycle has not completed,
-    //we must not update registers until irq 0 is cleared
-    //by the state machine.
-#ifndef PICO_RP2040    
-    if (pio_sm_is_rx_fifo_empty(pio0, SM_LISTENER)) {
-      while(pio_interrupt_get(pio0,0 /*= irq 0*/)) {
-        tight_loop_contents(); //Wait until irq 0 is cleared
-      }
-    }
-#endif    
-
     //Update all registers so that A3,A2 address lines are ignored.
     UpdateMegaFlashRegisters(0,newval);
     UpdateMegaFlashRegisters(1,newval);

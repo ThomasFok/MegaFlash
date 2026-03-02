@@ -10,6 +10,13 @@
 ;
 ; Ver 4.1 - Adjust delay for slower GAL16V8 and 74HC138 Address Decoder
 ;
+; Ver 4.2 - Removal of IRQ0. The original implementation tries to get output
+;           value from rxfifo as late as possible so as to give more time
+;           for CPU to process the previous request.
+;           It turns out it does more harm than good. First, the RP2040 does
+;           not do that and it works without any problem. The IRQ workaround
+;           also stall the CPU.
+;
 ; The usual implementation is that the PIO program informs the CPU when 6502 
 ; is reading from us. The CPU then sends the data to PIO program. The PIO program 
 ; outputs the data to 6502. But the CPU only has 450ns, which equals to 67 cycles
@@ -61,11 +68,9 @@
 
 
 .program a2buslistener
-
    
 .wrap_target
-
-  wait 0 gpio nDEVSEL_GPIO   ; wait unti nDEVSEL is activated
+  wait 0 gpio nDEVSEL_GPIO   ; wait until nDEVSEL is activated
   jmp PIN,read_cycle
   
   ;
@@ -84,7 +89,7 @@
   ;6502 is reading from us
   ;
 read_cycle:
-  mov isr, null [1]       ; Clear ISR. V4.1:Adding 1 delay improves compatibility with 74138 address decoder
+  mov isr, null [1]     ; Clear ISR. V4.1:Adding 1 delay improves compatibility with 74138 address decoder
  
   in pins, A2BUS_WIDTH  ; Read Apple Bus
   push noblock          ; Don't use auto-push since auto-push is blocking
@@ -98,7 +103,7 @@ read_cycle:
                          ;So, it should work without this instruction.
                          ;The only explanation I can think of is that
                          ;nDEVSEL goes low in the middle of a cycle.
-                         ;So, the prgram wrap to the beginning before
+                         ;So, the prgram wraps to the beginning before
                          ;the end of current cycle.
                          ;But how can this happen??
 
@@ -122,8 +127,6 @@ read_cycle:
 .program a2bus
 .fifo txget
 .side_set 1 opt
-
-  mov pindirs, null  side 1     ;Switch pindirs to input
         
 .wrap_target
   wait 0 gpio nDEVSEL_GPIO      ; wait unti nDEVSEL is activated
@@ -134,33 +137,20 @@ read_cycle:
   ;6502 is reading from us
   ;  
 read_cycle:    
-  ;For Megaflash, it is preferred to pull the output value from
-  ;rxfifo as late as possible to give CPU more time to process
-  ;the previous request. So, delay is added to each instruction.
-  ;But it causes problem when a 6502 read cycle also trigger 
-  ;a change of register values such as Slinky emulation and reading
-  ;of parameter/data buffers. The CPU should not update the value 
-  ;until PIO has pulled the output value of current cycle.
-  ;So, a flag IRQ 0 indicates the PIO is delaying the pull of output
-  ;value. CPU should not update the register values until the flag
-  ;is cleared.
-
-  irq set 0      [7]            ;To indicate we are delaying the pull of output value
-  mov osr, pins  [7]            ;Read Apple Bus
-  out x,2        [7]            ;x=A1:A0
-  out y,2        [7]            ;y=A3:A2
-  nop            [7]            ;Additional delay
-  nop            [3]            ;Additional delay. V4.1:Change delay from 6 to 3 for slower GAL16V8
+  mov osr, pins                 ;Read Apple Bus
+  out x,2                       ;x=A1:A0
+  out y,2                       ;y=A3:A2
 
   ;Read output value to osr  
   mov osr,rxfifo[y]    
-  irq clear 0                   ;To indicate we have pulled output value from rxfifo
+  ;The a2bus_gpio_init SM push the bus request at the 4th cycle after jmp PIN,read_cycle
+  ;This SM read output value also at the 4th cycle. So, it is impossible that the CPU
+  ;change the output value before we read it from rxfifo. 
 
 byte_select:                    ;Max loop 4 times
   out pins, 8                   ;Send lowest byte out
   jmp x--,byte_select
 
-  ;Timing: Max 57 cycles or 380ns from nDEVSEL is activted
   mov pindirs,~null  side 0     ;Switch pindirs to output       
 
 cycle_end:
@@ -268,9 +258,6 @@ static void a2bus_program_init(const PIO pio,const uint sm,const uint offset,con
 
   //GPIO:PICOWR pin as output
   pio_sm_set_consecutive_pindirs(pio, sm, nPICOWR_GPIO, 1, true /*=out*/);
-  
-  //Make sure IRQ 0 is cleared
-  pio_interrupt_clear(pio, 0);
   
   //Load configuration to State Machine and
   //setup Program Counter

@@ -159,14 +159,6 @@ void __no_inline_not_in_flash_func(BusLoop)() {
       } 
     } 
     
-#ifndef PICO_RP2040    
-    //see note in slinky.c
-    if (pio_sm_is_rx_fifo_empty(pio0, SM_LISTENER)) {
-      while(pio_interrupt_get(pio0,0 /*= irq 0*/)) {
-        tight_loop_contents(); //Wait until irq 0 is cleared
-      }
-    }
-#endif    
     //Update MegaFlash registers
     UpdateMegaFlashRegisters(0,registers.i32[0]);
     UpdateMegaFlashRegisters(1,registers.i32[1]);
