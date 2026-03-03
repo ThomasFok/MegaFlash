@@ -1,6 +1,7 @@
 Version 1.1.8
 Pico Firmware
 - FSUB Applesoft BASIC FPU command is added
+- Remove IRQ0 from RP2350 PIO program
 
 Apple Firmware
 
