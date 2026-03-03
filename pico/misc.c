@@ -5,6 +5,7 @@
 #include "hardware/adc.h"
 #include "hardware/watchdog.h"
 #include "hardware/spi.h"
+#include "hardware/clocks.h"
 #include <malloc.h>
 #include <string.h>
 #include <ctype.h>
@@ -75,7 +76,7 @@ uint32_t EndTimer() {
 
 
 /////////////////////////////////////////////////////////////////
-// Check if Apple II is connected by detecting PHI0 signal
+// Check if Apple II is connected by detecting PHI0 clock signal
 //
 // Output: true if Apple II is connected
 //
@@ -85,22 +86,20 @@ bool IsAppleConnected() {
   //Save Original Function
   gpio_function_t  orgFunc = gpio_get_function(PHI0_PIN);
 
-  gpio_init(PHI0_PIN);
-  gpio_set_dir(PHI0_PIN, GPIO_IN);
-
   //Disable Interrupt to make sure timing is right.
   const uint32_t status = save_and_disable_interrupts();  
-  
-  //If Apple is connected, PHI0 should change state every 0.5us.
-  //Each loop iterations take 0.05 and 0.063us on RP2350 and RP2040 at 150MHz
-  //respectively. 20 iterations should be more than enough for 150MHz clock
-  //Scale up the number of iteration according to the clock speed
-  #if SYS_CLK_MHZ > 150
-  const uint LOOPCOUNT = (20 * SYS_CLK_MHZ / 150);
-  #else 
-  const uint LOOPCOUNT = 20;
-  #endif
 
+  //Change PHI0_PIN to GPIO
+  gpio_init(PHI0_PIN);
+  gpio_set_dir(PHI0_PIN, GPIO_IN);
+  
+  //If Apple is connected, PHI0 should change state every 490ns.
+  //Each loop iterations take 50ns and 63ns on RP2350 and RP2040 at 150MHz
+  //respectively. 20 iterations should be more than enough for 150MHz clock
+  //Scale up the number of iterations according to the clock speed
+  const uint32_t sys_clk_mhz = clock_get_hz(clk_sys)/1000000ul;
+  const uint32_t LOOPCOUNT  = 20 * sys_clk_mhz / 150;
+  
   const bool orgState = gpio_get(PHI0_PIN);
   for(int i=LOOPCOUNT;i!=0;--i) {
     if (gpio_get(PHI0_PIN) != orgState) {
@@ -108,12 +107,12 @@ bool IsAppleConnected() {
       break;
     }
   }
-  
-  //Restore Interrupt Status
-  restore_interrupts(status); 
 
   //Restore Function
   gpio_set_function(PHI0_PIN, orgFunc);
+
+  //Restore Interrupt Status
+  restore_interrupts(status); 
   
   return phi0ClockFound;
 }
