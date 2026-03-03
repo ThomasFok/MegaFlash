@@ -27,6 +27,7 @@ uint32_t GetTotalHeap(void);
 uint32_t GetFreeHeap(void);
 void SystemReset();
 void measure_freqs();
+void OverclockCPU();
 
 #define VOLNAMELENMAX 15
 typedef struct  {

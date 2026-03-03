@@ -259,6 +259,58 @@ void measure_freqs() {
     // Can't measure clk_ref / xosc as it is the ref
 }
 
+//////////////////////////////////////////////////////////////////////////
+//
+// Overclock CPU to 225MHz and keep clk_peri (SPI speed) at 150MHz
+// Only works on RP2350
+//
+// Return value: System Clock frequency (clk_sys) in Hz
+//
+// Clocks Generation:
+//                                               ÷2                   ÷1.5 
+//   VCO   --> POSTDIV1 --> POSTDIV2 --> SYS PLL --> clk_sys (225MHz) --> PIO clock (150MHz)
+// 1350MHz       ÷3           ÷1         450MHz  |-> clk_peri(150MHz) --> SPI clock (75MHz)
+//                                               ÷3                   ÷2
+//
+// There is no clock divider in clk_peri on RP2040. So, this overclock scheme 
+// only works on RP2350.
+//
+// Remarks: VCO range: 750-1600MHz. POSTDIV1,2: 1-7. clk_sys/clkperi divider: 1 or >=2
+//
+void OverclockCPU() { 
+#ifdef PICO_RP2350 
+  const uint32_t VCO = 1350*MHZ;
+  const uint32_t POSTDIV1 = 3;
+  const uint32_t POSTDIV2 = 1;
+  const uint32_t SYS_PLL_FREQ = VCO/(POSTDIV1*POSTDIV2);
+  
+  //Run system clock from usb_pll temporarily while changing sys_pll frequency
+  clock_configure(clk_sys,
+                  CLOCKS_CLK_SYS_CTRL_SRC_VALUE_CLKSRC_CLK_SYS_AUX,
+                  CLOCKS_CLK_SYS_CTRL_AUXSRC_VALUE_CLKSRC_PLL_USB,
+                  USB_CLK_HZ,
+                  USB_CLK_HZ);
+
+  //Change sys_pll frequency to 450MHz = 1350MHz/(3*1)
+  pll_init(pll_sys, PLL_SYS_REFDIV, VCO, POSTDIV1, POSTDIV2);
+  
+  //Set clk_sys = sys_pll /2
+  clock_configure(clk_sys,
+                  CLOCKS_CLK_SYS_CTRL_SRC_VALUE_CLKSRC_CLK_SYS_AUX,
+                  CLOCKS_CLK_SYS_CTRL_AUXSRC_VALUE_CLKSRC_PLL_SYS,
+                  SYS_PLL_FREQ,      /* PLL_SYS frequency  */
+                  SYS_PLL_FREQ/2);   /* required frequency */    
+  
+  //Set clk_peri = sys_pll / 3
+  clock_configure(clk_peri,
+                  0,
+                  CLOCKS_CLK_PERI_CTRL_AUXSRC_VALUE_CLKSRC_PLL_SYS,
+                  SYS_PLL_FREQ,      /* PLL_SYS frequency  */
+                  SYS_PLL_FREQ/3);   /* required frequency */  
+#endif
+}
+
+
 /////////////////////////////////////////////////////////////
 // Get ProDOS Volume Info
 // Read Block 2 and return ProDOS volume information
