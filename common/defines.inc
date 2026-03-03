@@ -66,12 +66,12 @@ CMD_FSQR                =       $39
 CMD_FOUT                =       $3A
 CMD_FSUB								=				$3B
 
-CMD_RESETTIMER_US       =       $40
-CMD_GETTIMER_US         =       $41
-CMD_RESETTIMER_MS       =       $42
-CMD_GETTIMER_MS         =       $43
-CMD_RESETTIMER_S        =       $44
-CMD_GETTIMER_S          =       $45
+CMD_RESETSTOPWATCH_US   =       $40
+CMD_GETSTOPWATCH_US     =       $41
+CMD_RESETSTOPWATCH_MS   =       $42
+CMD_GETSTOPWATCH_MS     =       $43
+CMD_RESETSTOPWATCH_S    =       $44
+CMD_GETSTOPWATCH_S      =       $45
 
 CMD_TFTPRUN             =       $50
 CMD_TFTPSTATUS          =       $51

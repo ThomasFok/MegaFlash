@@ -121,7 +121,7 @@ spentry:        lda #MODE_SP
                         
 ;--------------------------------------------
 ; Speed Test routine to measure the performance
-; Read Block 0 to $2000 and time required is printed
+; Read Block 0 to $2000 and time taken is printed
 ; to screen.
 ; (For Development only)
 .if 0
@@ -132,14 +132,17 @@ speedtest:      ldx #STCMDLEN-1
                 dex
                 bpl :-
                 
-                lda #CMD_RESETTIMER_US        ;Start Timer command
+                ;Start us stopwatch
+                lda #CMD_RESETSTOPWATCH_US      
                 sta cmdreg
                 
                 ;execute
                 jsr p8entry       ;p8 entry
-                lda #CMD_GETTIMER_US          ;stop Timer
+                
+                ;Get elapsed time
+                lda #CMD_GETSTOPWATCH_US        
                 sta cmdreg
-                ;no need to delay since running at 1MHz
+                ;no need to delay since running at 1MHz in slotrom region
                 
                 ;read the time elapsed and print
                 lda paramreg    ;low byte              

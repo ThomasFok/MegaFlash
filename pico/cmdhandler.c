@@ -1159,58 +1159,62 @@ exit:
 
 /********************************************************************
 
-        Timer
+Stopwatch (Count up timers) Commands
+There are 3 stopwatch, in us, ms and sec resolution.
+They are always running. There are only 2 commands.
+Reset the stopwatch to 0
+Get current value of the stopwatch
         
 ********************************************************************/
 /////////////////////////////////////////////////////////////
-// Reset microseconds timer to 0
+// Reset microseconds stopwatch to 0
 // 
 static uint32_t startTime_us=0ul;
-static void DoResetTimer_us() {
+static void DoResetStopwatch_us() {
   startTime_us = time_us_32();  //current timestamp value in microseconds
 }
 
 /////////////////////////////////////////////////////////////
-// Get the microseconds timer
+// Get the microseconds stopwatch value
 // and put it into parameter buffer as a 32-bit integer
 //
-static void DoGetTimer_us() {
+static void DoGetStopwatch_us() {
   uint32_t elapsed = time_us_32() - startTime_us;
   *(uint32_t*)parameterBuffer = elapsed;
   ResetParamPointer();
 }
 
 ////////////////////////////////////////////////////////////
-// Reset milliseconds timer to 0
+// Reset milliseconds stopwatch to 0
 // 
 static uint64_t startTime_ms=0ull;
-static void DoResetTimer_ms() {
+static void DoResetStopwatch_ms() {
   startTime_ms = time_us_64();  //current timestamp value in microseconds
 }
 
 /////////////////////////////////////////////////////////////
-// Get the milliseconds timer
+// Get the milliseconds stopwatch value
 // and put it into parameter buffer as a 32-bit integer
 //
-static void DoGetTimer_ms() {
+static void DoGetStopwatch_ms() {
   uint64_t elapsed = (time_us_64() - startTime_ms)/1000ull;
   *(uint32_t*)parameterBuffer = (uint32_t)elapsed;
   ResetParamPointer();
 }
 
 /////////////////////////////////////////////////////////////
-// Reset seconds timer to 0
+// Reset seconds stopwatch to 0
 // 
 static uint64_t startTime_s=0ull;
-static void DoResetTimer_s() {
+static void DoResetStopwatch_s() {
   startTime_s = time_us_64(); //current timestamp value in microseconds
 }
 
 /////////////////////////////////////////////////////////////
-// Get the milliseconds timer
+// Get the seconds stopwatch value
 // and put it into parameter buffer as a 32-bit integer
 //
-static void DoGetTimer_s() {
+static void DoGetStopwatch_s() {
   uint64_t elapsed = (time_us_64() - startTime_s)/1000000ull;
   *(uint32_t*)parameterBuffer = (uint32_t)elapsed;
   ResetParamPointer();
@@ -1642,23 +1646,23 @@ void __no_inline_not_in_flash_func(DoCommand)(const uint32_t command) {
       ResetParamPointer();
       ClearError();      
       break;      
-    case CMD_RESETTIMER_US:
-      DoResetTimer_us();
+    case CMD_RESETSTOPWATCH_US:
+      DoResetStopwatch_us();
       break;
-    case CMD_GETTIMER_US:
-      DoGetTimer_us();
+    case CMD_GETSTOPWATCH_US:
+      DoGetStopwatch_us();
       break;
-    case CMD_RESETTIMER_MS:
-      DoResetTimer_ms();
+    case CMD_RESETSTOPWATCH_MS:
+      DoResetStopwatch_ms();
       break;
-    case CMD_GETTIMER_MS:
-      DoGetTimer_ms();
+    case CMD_GETSTOPWATCH_MS:
+      DoGetStopwatch_ms();
       break;    
-    case CMD_RESETTIMER_S:
-      DoResetTimer_s();
+    case CMD_RESETSTOPWATCH_S:
+      DoResetStopwatch_s();
       break;
-    case CMD_GETTIMER_S:
-      DoGetTimer_s();
+    case CMD_GETSTOPWATCH_S:
+      DoGetStopwatch_s();
       break;            
     case CMD_TFTPRUN:
       DoTFTPRun();

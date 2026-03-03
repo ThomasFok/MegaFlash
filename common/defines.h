@@ -58,12 +58,12 @@
 #define CMD_FOUT                0x3a
 #define CMD_FSUB                0x3b
 
-#define CMD_RESETTIMER_US       0x40
-#define CMD_GETTIMER_US         0x41
-#define CMD_RESETTIMER_MS       0x42
-#define CMD_GETTIMER_MS         0x43
-#define CMD_RESETTIMER_S        0x44
-#define CMD_GETTIMER_S          0x45
+#define CMD_RESETSTOPWATCH_US   0x40
+#define CMD_GETSTOPWATCH_US     0x41
+#define CMD_RESETSTOPWATCH_MS   0x42
+#define CMD_GETSTOPWATCH_MS     0x43
+#define CMD_RESETSTOPWATCH_S    0x44
+#define CMD_GETSTOPWATCH_S      0x45
 
 #define CMD_TFTPRUN             0x50
 #define CMD_TFTPSTATUS          0x51
