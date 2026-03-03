@@ -183,7 +183,8 @@ coldstartinit:
                 lda acia1status         ;Clear IRQ Status
                 .endif
 
-                ;Enable MegaFlash by reading the Magic Address sequence
+                ;Switch MegaFlash from Slinky mode to native mode by
+                ;reading the Magic Address sequence
                 lda MAGIC1
                 lda MAGIC2
                 lda MAGIC3
