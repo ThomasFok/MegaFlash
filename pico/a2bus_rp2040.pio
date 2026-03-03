@@ -6,22 +6,24 @@
 ; Ver 3.2 - Support system clock >125MHz
 ;
 ;
-; The usual implementation is that the PIO program informs the CPU when 6502 
-; is reading from us. The CPU then sends the data to PIO program. The PIO program 
-; outputs the data to 6502. But the CPU only has 450ns, which equals to 56 cycles,
-; to process the request. 
-
+; The usual implementation is that the PIO program informs the ARM CPU when 6502 
+; access MegaFlash registers. If it is a read request, the ARM CPU then sends the
+; value of requested register to PIO program. The PIO program outputs the value to
+; GPIO pins to send the value to 6502. But the CPU only has about 450ns, which 
+; equals to 67.5 cycles @150MHz, to process the request. 
+;
 ; But MegaFlash is just a device at slot 4. It only has 16 I/O registers from $C0C0 
 ; to $C0CF. The current values of those registers can be stored in PIO state machine 
-; memory. The state machine can response 6502 read request without the help from CPU.
-
-; Each state machine has 4 32-bit registers. Only one 32-bit register is used to 
-; store 6502 8-bit registers. So, all 4 state machines are needed. State machine 0 
-; is responsible for $C0C0 to $C0C3 and so on.
-
-; The state machines run the same program. The CPU assign an ID (0-3) to each state 
+; memory. The state machine can fulfill 6502 read request without the help from ARM CPU.
+;
+; Each state machine has 4 32-bit registers (ISR,OSR,X and Y). Only one 32-bit register
+; is used to store MegaFlash I/O registers. One state machine can handle 4 I/O regsiters.
+; So, all 4 state machines are needed. State machine 0 is responsible for $C0C0 to $C0C3
+; and so on.
+;
+; All 4 state machines run the same program. The CPU assign an ID (0-3) to each state 
 ; machine so it responses to different 6502 addresses.
-
+;
 ; To further simplify the PIO program, Bit 2, RnW bit, is set when CPU assign the IDs. 
 
 .pio_version RP2040
@@ -43,6 +45,17 @@
 .define public nDEVSEL_GPIO 20  ; DEVSEL at GPIO 20, Active Low
 .define public nPICOWR_GPIO 22  ; Indicate Pico is outputting data
 
+
+;
+;y register stores the machine ID with RnW bit set.
+;The current value of MegaFlash I/O registers is called regvalue
+;There is no dedicated PIO register to store the value.
+;The regvalue is moved between x register and isr register along
+;the program
+;
+
+
+
 .program a2bus
 
 .side_set 1 opt         ; sideset pin is picowr_n
@@ -52,13 +65,13 @@
   mov y,osr             ; Then, copy it to y
 
 .wrap_target
-  mov x,isr             ; move 6502 registers values (regval) to x
+  mov x,isr             ; move regvalue to x            (regval in x)
 
   ;
   ; Busy waiting new registers value from CPU or nDEVSEL signal
   ;
 loop:
-  pull noblock          ; New 6502 regval from CPU?
+  pull noblock          ; Pull new regvalue to OSR
                         ; If FIFO empty, perform mov osr, x to reuse the last value
   mov x, osr            ; Store regval to x
   
@@ -66,17 +79,18 @@ loop:
 
 cycle_start:
   mov isr, null [7]     ; Clear ISR and delay awhile before reading data from 6502
-  nop           [7]     ; Don't remove this nop. It doesn't work without the delay.
+  nop           [7]     ; Don't remove this nop. It doesn't work without the delay
+                        ; since the data bus is not yet valid when nDEVSEL is asserted
   in pins, A2BUS_WIDTH  ; Read Apple Bus
-  push noblock          ; Don't use auto-push since auto-push is blocking
+  push noblock          ; Send to ARM CPU. Don't use auto-push since auto-push is blocking
   
   ;Is 6502 reading from this State Machine?
   ;Check if [A3:A2]==Our State Machine ID and RnW==1
-  mov isr,x             ; save regval to ISR
+  mov isr,x             ; move regval to ISR            (regval in ISR)
   mov osr, pins         ; Read Apple Bus to OSR
   out null, 2           ; Discard A1-0
   out x, 3              ; x=[RnW,A3,A2]
-  jmp x!=y, cycle_end   ; jmp if not access this state machine or RnW==0
+  jmp x!=y, cycle_end   ; jmp if not access this state machine or RnW==0(write cycle)
      
   ;----------------------------------
   ;Read cycle
@@ -86,7 +100,7 @@ cycle_start:
   mov osr, pins         ; Read Apple Bus to OSR          
   out x, 2              ; x=[A1:0]
 
-  ; Copy regval to osr
+  ; Make a copy of regval to osr. The copy in osr will be destroyed
   mov osr, isr      
   
   ; Select the byte based on x which is [A1:0]
@@ -98,7 +112,7 @@ byte_select:
   ; Switch Pin to output
   mov osr, ~NULL  
   out pindirs, 8 side 0 ;Switch pindir to output, side 0 to switch transeiver directon
-  ;Timing: Max 39 cycles or 312ns from nDEVSEL is activated.
+  ;Timing: Max 39 cycles or 312ns @125MHz from nDEVSEL is activated.
   
 cycle_end:
   ; Wait until Phi0 goes low and switch pin direction to input
@@ -154,24 +168,24 @@ static void a2bus_program_init(const PIO pio,const uint sm,const uint offset,con
   
   //GPIO: Address Bus, RnW, Data bus as input
   pio_sm_set_consecutive_pindirs(pio, sm, A2BUS_BASE, A2BUS_WIDTH, false /*=in*/); 
-  for (int pin=A2BUS_BASE; pin<A2BUS_BASE+A2BUS_WIDTH; ++pin) {
+  for (uint pin=A2BUS_BASE; pin<A2BUS_BASE+A2BUS_WIDTH; ++pin) {
     pio_gpio_init(pio, pin);
   }
   
-	//Enable Pull up resistor of Data Bus to avoid floating of transceiver input
-	for (uint pin=A2DBUS_BASE; pin<A2DBUS_BASE+8; ++pin) {
-		gpio_pull_up(pin);
-	}	
-	
-	//A2 and A3 must be pulled down to set the address at $C0C0-C0C3
-	//Note: On Rev1.0 and 1.1 PCB, A2 and A3 inputs are floating. 
-	gpio_set_pulls(A2ABUS_BASE+2, false, true); //Disable pull-up, Enable pull-down
-	gpio_set_pulls(A2ABUS_BASE+3, false, true); //Disable pull-up, Enable pull-down	
-	
+  //Enable Pull up resistor of Data Bus to avoid floating of transceiver input
+  for (uint pin=A2DBUS_BASE; pin<A2DBUS_BASE+8; ++pin) {
+    gpio_pull_up(pin);
+  }       
+        
+  //A2 and A3 must be pulled down to set the address at $C0C0-C0C3
+  //Note: On Rev1.0 and 1.1 PCB, A2 and A3 inputs are floating. 
+  gpio_pull_down(A2ABUS_BASE+2);
+  gpio_pull_down(A2ABUS_BASE+3);
+        
   //GPIO: Set PHI0 and nDEVSEL pin to PIO
   pio_gpio_init(pio,PHI0_GPIO);
   pio_gpio_init(pio,nDEVSEL_GPIO);
-  gpio_pull_up(nDEVSEL_GPIO);	//Enable Pull-up since it is active-low.
+  gpio_pull_up(nDEVSEL_GPIO);   //Enable Pull-up since it is active-low.
 
   //Load configuration to State Machine and
   //setup Program Counter
