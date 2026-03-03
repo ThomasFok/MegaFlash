@@ -733,7 +733,8 @@ static uint32_t __no_inline_not_in_flash_func(ReadSector)(const uint deviceNum,u
 //
 // Input: Device Number, Page Address, Pointer to Source Data (256 Bytes Buffer)
 //
-static void __no_inline_not_in_flash_func(ProgramOnePage)(const uint deviceNum,uint32_t pageAddress,const uint8_t* src) {
+// Flash Programming is relative slow. No need to put this function to RAM
+static void ProgramOnePage(const uint deviceNum,uint32_t pageAddress,const uint8_t* src) {
   //The lowest 8 bits of pageAddress should be 0.
   assert( (pageAddress & 0xff) == 0);
 
@@ -872,7 +873,8 @@ exit:
 //
 // Output: true if write operation is successful
 //
-static bool __no_inline_not_in_flash_func(WriteOneBlockWithErase)(const blockloc_t blockLoc, const uint8_t* srcBuffer) {
+// Flash Erase is relative slow. No need to put this function to RAM
+static bool WriteOneBlockWithErase(const blockloc_t blockLoc, const uint8_t* srcBuffer) {
   //
   //Step 1: Read the entire 4kB sector to sectorBuffer
   ReadSector(blockLoc.deviceNum, blockLoc.blockAddress, sectorBuffer); 
