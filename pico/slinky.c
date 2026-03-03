@@ -1,6 +1,4 @@
 #include <stdio.h>
-#include <malloc.h>
-#include <string.h>
 #include "pico/stdlib.h"
 #include "hardware/pio.h"
 #include "defines.h"
