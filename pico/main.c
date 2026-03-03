@@ -130,10 +130,10 @@ int main() {
   InitTFTPState();
   
   //Enable Pull-down resistors of unused GPIOs
-  gpio_pull_down(0);
-  gpio_pull_down(1);
-  gpio_pull_down(26);
-  gpio_pull_down(27);  
+  gpio_pull_down(0);    //UART TX on devboard
+  gpio_pull_down(1);    //UART RX on devboard
+  gpio_pull_down(26);   //Activity LED on devboard
+  gpio_pull_down(27);   //Not used on devboard and production board
   
   
 #ifndef NDEBUG
@@ -194,8 +194,9 @@ int main() {
   //Print Debug Infomation to serial port
   //
   DEBUG_PRINTF("\nMegaflash DEBUG Firmware Version %d\n",FIRMWAREVER);
-  DEBUG_PRINTF("CPU Clock Speed =%dMHz\n",clock_get_hz(clk_sys)/1000000);
-  DEBUG_PRINTF("clk_peri =%dMHz\n",clock_get_hz(clk_peri)/1000000);
+  DEBUG_PRINTF("sys_pll   = %dMHz\n",frequency_count_khz(CLOCKS_FC0_SRC_VALUE_PLL_SYS_CLKSRC_PRIMARY)/1000);
+  DEBUG_PRINTF("clk_sys   = %dMHz\n",clock_get_hz(clk_sys)/1000000);
+  DEBUG_PRINTF("clk_peri  = %dMHz\n",clock_get_hz(clk_peri)/1000000);
   DEBUG_PRINTF("SPI Speed = %dMHz\n",spi_get_baudrate(spi0)/1000000);
   DEBUG_PRINTF("WIFI Supported = %s\n",CheckPicoW()?"Yes":"No");
   DEBUG_PRINTF("Total heap = %d\n",GetTotalHeap());
