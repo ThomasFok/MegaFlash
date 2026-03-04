@@ -1,9 +1,4 @@
-#include "pico/stdio.h"
-#include <stdio.h>
-#include "pico/stdlib.h"
-#include "hardware/pio.h"
 #include "a2bus.h"
-#include "defines.h"
 #include "busloop_wa.h"
 
 //---------------------------------------------------------------------
@@ -47,7 +42,7 @@ RP2040 does not have enough RAM to emulate a Skinly RAM card.
 
 
 // No need to put this function to RAM since
-// we don't rush to write any result back to MegaFlash I/O
+// we don't rush to write any results back to MegaFlash I/O
 // registers.
 void BusLoopWaitActiviation() {
   const uint32_t REGINITVAL = 0x00f0f000;
