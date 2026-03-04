@@ -116,8 +116,7 @@ void __no_inline_not_in_flash_func(BusLoop)() {
       //
       switch(addr) {
         case STATUSREG:
-          //No extra processsing is needed.
-          break;
+          continue; //No need to update MegaFlsh Registers
         case DATAREG:
           //advance dataBufferIndex
           if (dataBufferTransferMode==MODE_LINEAR) dataBufferIndex = (dataBufferIndex + 1) & DATABUFFERINDEXMASK; //loop around if end of buffer is reached

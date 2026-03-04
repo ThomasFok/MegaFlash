@@ -35,8 +35,9 @@
 
 /**********************************************************************
 
-Emulate a 0kB Slinky card. Waiting for switching to native mode
 RP2040 does not have enough RAM to emulate a Skinly RAM card.
+This bus loop simply waits for the Magic sequence to switch to
+native mode.
 
 **********************************************************************/
 
