@@ -122,7 +122,7 @@ double_ui64 fac, arg, result;
 //
 // Input: Pointer to source data buffer
 //
-static void __no_inline_not_in_flash_func(LoadFAC)(const uint8_t *src) {
+static void LoadFAC(const uint8_t *src) {
   //
   //Convert FAC
   //
@@ -176,7 +176,7 @@ static void __no_inline_not_in_flash_func(LoadFAC)(const uint8_t *src) {
 //
 // Input: Pointer to source data buffer
 //
-static void __no_inline_not_in_flash_func(LoadARG)(const uint8_t *src) {
+static void LoadARG(const uint8_t *src) {
   //
   //Convert ARG
   //
@@ -219,7 +219,7 @@ static void __no_inline_not_in_flash_func(LoadARG)(const uint8_t *src) {
 //
 // Input: Pointer to source data buffer
 //
-static void __no_inline_not_in_flash_func(LoadFAC_ARG)(const uint8_t *src) {
+static void LoadFAC_ARG(const uint8_t *src) {
   LoadFAC(src);
   LoadARG(src);
 }
@@ -230,7 +230,7 @@ static void __no_inline_not_in_flash_func(LoadFAC_ARG)(const uint8_t *src) {
 //
 // Input: Pointer to dest buffer
 //
-static void __no_inline_not_in_flash_func(StoreResult)(uint8_t *dest) {
+static void StoreResult(uint8_t *dest) {
   //Clear Error Flag
   dest[RESERROR] = 0;
 
@@ -312,7 +312,7 @@ static void __no_inline_not_in_flash_func(StoreResult)(uint8_t *dest) {
 // 4) If there is carry, add one to FAC.EXP and shift mantissa right
 // 5) If FAC.EXP overflow, show OVERFLOW ERROR
 //
-static uint8_t __no_inline_not_in_flash_func(RoundFAC)(uint8_t *fac) {
+static uint8_t RoundFAC(uint8_t *fac) {
   //Do nothing if FAC Ext MSB is 0
   if ((fac[FACEXT]&0x80)==0) {
     return 0; //No Error
@@ -392,7 +392,7 @@ void fsub(uint8_t *paramBuffer) {
 //
 // Input: Pointer to parameter buffer
 //
-void __no_inline_not_in_flash_func(fmul)(uint8_t *paramBuffer) {
+void fmul(uint8_t *paramBuffer) {
   LoadFAC_ARG(paramBuffer);
   result.d = arg.d * fac.d;
   DEBUG_PRINT_ALL("fmul");
@@ -406,7 +406,7 @@ void __no_inline_not_in_flash_func(fmul)(uint8_t *paramBuffer) {
 //
 // Input: Pointer to parameter buffer
 //
-void __no_inline_not_in_flash_func(fdiv)(uint8_t *paramBuffer) {
+void fdiv(uint8_t *paramBuffer) {
   if (RoundFAC(paramBuffer)!=0) {
     DEBUG_PRINTF("fdiv: RoundFAC Overflow Error\n");
     return;
@@ -585,7 +585,7 @@ void fsqr(uint8_t *paramBuffer) {
 // No need to consider underflow/overflow problem.
 // Since the range of double covers the entire range of MBF.
 // So, the number must be valid and printable.
-static int __no_inline_not_in_flash_func(formatApplesoftString)(double d, char* buf) {
+static int formatApplesoftString(double d, char* buf) {
   //Limit the output of snprintf to a reasonable length
   const size_t BUFFERSIZE = 20; 
   
@@ -627,16 +627,11 @@ static int __no_inline_not_in_flash_func(formatApplesoftString)(double d, char* 
 //   First byte is the length of the string
 //   The following is a NULL-terminated string
 //
-void __no_inline_not_in_flash_func(fout)(uint8_t *paramBuffer) {
+void fout(uint8_t *paramBuffer) {
   LoadFAC(paramBuffer);  
   DEBUG_PRINT_FAC("fout");
   paramBuffer[0] = formatApplesoftString(fac.d, paramBuffer+1); //return the length of output string
   DEBUG_PRINTF("buf=%s\n",paramBuffer+1);
   assert(paramBuffer[0]==strlen(paramBuffer+1));  //Make sure length is correct
 }
-
-
-
-
-
 
