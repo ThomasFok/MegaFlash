@@ -52,7 +52,11 @@ void CommandHandlerInit() {
 /////////////////////////////////////////////////////////////
 // Clear Error Flag and Error Code in status register
 //
-static inline void ClearError() {
+static inline void ClearErrorInline() {
+  registers.r[STATUSREG] &= ~(ERRORFLAG|ERRORCODEFIELD);
+}
+
+static void __no_inline_not_in_flash_func(ClearError)() {
   registers.r[STATUSREG] &= ~(ERRORFLAG|ERRORCODEFIELD);
 }
 
@@ -61,24 +65,35 @@ static inline void ClearError() {
 //
 // Input: error code
 //
-static inline void SetError(const uint8_t errorCode) {
+static void __no_inline_not_in_flash_func(SetError)(const uint8_t errorCode) {
   assert(errorCode < 32);
-  ClearError();
+  ClearErrorInline();
   if (errorCode) registers.r[STATUSREG] |= ERRORFLAG | errorCode;
 }
 
 /////////////////////////////////////////////////////////////
 // Reset Data Pointer to zero
 //
-static inline void ResetDataPointer() {
+static inline void ResetDataPointerInline() {
   dataBufferIndex = 0;
   registers.r[DATAREG]=dataBuffer[0];
 }
 
+static void __no_inline_not_in_flash_func(ResetDataPointer)() {
+  dataBufferIndex = 0;
+  registers.r[DATAREG]=dataBuffer[0];
+}
+
+
 /////////////////////////////////////////////////////////////
 // Reset Parameter Pointer to zero
 //
-static inline void ResetParamPointer() {
+static inline void ResetParamPointerInline() {
+  parameterBufferIndex = 0;
+  registers.r[PARAMREG]=parameterBuffer[0];
+}
+
+static void __no_inline_not_in_flash_func(ResetParamPointer)() {
   parameterBufferIndex = 0;
   registers.r[PARAMREG]=parameterBuffer[0];
 }
@@ -470,8 +485,8 @@ static void DoGetTimeString(){
   //Null-terminate the string
   parameterBuffer[STRLEN] ='\0';
   
-  ClearError();
   ResetParamPointer();
+  ClearError();
 }
 
 //////////////////////////////////////////////////////
@@ -719,8 +734,8 @@ static void DoGetConfigBytes() {
   parameterBuffer[0]=GetConfigByte1();
   parameterBuffer[1]=GetConfigByte2();
   
-  ClearError();
   ResetParamPointer();
+  ClearError();
 }
 
 /////////////////////////////////////////////////////////////
@@ -1170,7 +1185,7 @@ Get current value of the stopwatch
 // Reset microseconds stopwatch to 0
 // 
 static uint32_t startTime_us=0ul;
-static void DoResetStopwatch_us() {
+static void __no_inline_not_in_flash_func(DoResetStopwatch_us)() {
   startTime_us = time_us_32();  //current timestamp value in microseconds
 }
 
@@ -1178,10 +1193,10 @@ static void DoResetStopwatch_us() {
 // Get the microseconds stopwatch value
 // and put it into parameter buffer as a 32-bit integer
 //
-static void DoGetStopwatch_us() {
+static void __no_inline_not_in_flash_func(DoGetStopwatch_us)() {
   uint32_t elapsed = time_us_32() - startTime_us;
   *(uint32_t*)parameterBuffer = elapsed;
-  ResetParamPointer();
+  ResetParamPointerInline();
 }
 
 ////////////////////////////////////////////////////////////
@@ -1472,27 +1487,27 @@ void __no_inline_not_in_flash_func(DoCommand)(const uint32_t command) {
   TurnOnActLed();
   switch(command) {
     case CMD_RESETBOTHPTRS:
-      ResetDataPointer();
-      ResetParamPointer();
-      ClearError();
+      ResetDataPointerInline();
+      ResetParamPointerInline();
+      ClearErrorInline();
       break;
     case CMD_RESETDATAPTR:
-      ResetDataPointer();
-      ClearError();
+      ResetDataPointerInline();
+      ClearErrorInline();
       break;
     case CMD_RESETPARAMPTR:
-      ResetDataPointer();
-      ClearError();
+      ResetDataPointerInline();
+      ClearErrorInline();
       break;
     case CMD_MODELINEAR:
       dataBufferTransferMode = MODE_LINEAR;
-      ResetDataPointer();
-      ClearError();
+      ResetDataPointerInline();
+      ClearErrorInline();
       break;
     case CMD_MODEINTERLEAVED:
       dataBufferTransferMode = MODE_INTERLEAVED;
-      ResetDataPointer();
-      ClearError();
+      ResetDataPointerInline();
+      ClearErrorInline();
       break;    
     case CMD_COLDSTART:
       DoAppleColdStart();
