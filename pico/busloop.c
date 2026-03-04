@@ -1,4 +1,3 @@
-#include <string.h>
 #include "pico/stdlib.h"
 #include "a2bus.h"
 #include "defines.h"
@@ -45,8 +44,8 @@
 //We can have up to 16 registers if A2 and A3 address lines are connected.
 //The 16 registers are divided into 4 chunks. Each PIO state machine is
 //responsible for 4 registers. e.g. State machine 0 is responsible for
-//$C0C0-$C0C4
-union {
+//$C0C0-$C0C4.
+__attribute__((aligned(4))) union {
   uint8_t  r[16];     //Individual 8-bit registers
   uint32_t i32[4];    //Chunks of 4 32-bit registers
 } registers;
@@ -62,15 +61,14 @@ transfermode_t dataBufferTransferMode;  //Linear or Interleaved mode
 //---------------------------------------------------------------------
 
 
-
+////////////////////////////////////////////////////////////////////
+// Initialize Bus Loop data
+//
+//
 //This function is called when switching mode from Slinky to MegaFlash.
 //We want the switching to be as fast as possible. 
 //So, don't remove __no_inline_not_in_flash_func
-void __no_inline_not_in_flash_func(BusLoopDataInit)() {
-  //Clear parameterBuffer by CPU.
-  //ParameterBuffer is small, not worth using DMA.
-  memset(parameterBuffer, 0, PARAMBUFFERSIZE);
-  
+void __no_inline_not_in_flash_func(BusLoopDataInit)() { 
   parameterBufferIndex = 0;
   dataBufferIndex = 0;
   dataBufferTransferMode = DEFAULTTRANSFERMODE;
@@ -90,17 +88,36 @@ void __no_inline_not_in_flash_func(BusLoopDataInit)() {
   UpdateMegaFlashRegisters(3,registers.i32[3]);
 }
 
+////////////////////////////////////////////////////////////////////
+// MegaFlash Bus Loop
+//
+// Process bus access from Apple II.
+// The GetAppleBusBlocking() function waits for bus access from Apple II.
+// When it happens, the function sends back the bus access data.
+// It includes 4-bit address, 1 bit RnW Flag and 8-bit data for write access.
+// The 4-bit address indicates which I/O register is being accessed ($C0C0-$C0CF)
+//
+// To update the I/O register output value, put the value to registers union.
+// For example, to change register $C0C2 to $12. Write $12 to register.r[02].
+// The UpdateMegaFlashRegisters() function call at the end of this function
+// send updated values to PIO.
+//
 void __no_inline_not_in_flash_func(BusLoop)() {
   const uint32_t READFLAG = (1<<4); //Read flag is at bit 4
 
   while(true) {
     //8-bit data from Apple + RnW Flag + 4-bit address from Apple
-    uint32_t busdata = GetAppleBusBlocking();
-    uint32_t addr = busdata & 0b1111;     //Lower nibble of Apple Address
+    const uint32_t busdata = GetAppleBusBlocking();
+    const uint32_t addr = busdata & 0b1111;     //Lower nibble of Apple Address
 
     if (busdata & READFLAG) {
+      //
       //6502 is reading from us
+      //
       switch(addr) {
+        case STATUSREG:
+          //No extra processsing is needed.
+          break;
         case DATAREG:
           //advance dataBufferIndex
           if (dataBufferTransferMode==MODE_LINEAR) dataBufferIndex = (dataBufferIndex + 1) & DATABUFFERINDEXMASK; //loop around if end of buffer is reached
@@ -120,15 +137,17 @@ void __no_inline_not_in_flash_func(BusLoop)() {
       }
       
     } else {
+        //
         //6502 is writing to us
-        uint32_t data = (busdata >>5) & 0xff; //8-bit data from Apple
+        //
+        const uint32_t data = (busdata >>5) & 0xff; //8-bit data from Apple
         
         switch(addr) {
           case CMDREG:
             //Set Busy Flag
             registers.r[STATUSREG] |= BUSYFLAG;
             
-            //Send Busy Flag to PIO State Machine
+            //Send Busy Flag to PIO State Machine immediately
             UpdateMegaFlashRegisters(0, registers.i32[0]);
 
             //Execute the command
@@ -160,7 +179,7 @@ void __no_inline_not_in_flash_func(BusLoop)() {
       } 
     } 
     
-    //Update MegaFlash registers
+    //Update MegaFlash I/O registers
     UpdateMegaFlashRegisters(0,registers.i32[0]);
     UpdateMegaFlashRegisters(1,registers.i32[1]);
     UpdateMegaFlashRegisters(2,registers.i32[2]);
