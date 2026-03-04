@@ -1,7 +1,5 @@
-#include <stdio.h>
 #include <string.h>
 #include "pico/stdlib.h"
-#include "hardware/pio.h"
 #include "a2bus.h"
 #include "defines.h"
 #include "busloop.h"
@@ -11,7 +9,7 @@
 //Accessing buffers from Apple IIc
 //The parameter buffer and data buffer can be accessed from address
 //$C0C1 and $C0C2. There are internal address pointers in MegaFlash.
-//When those addresses is accessed, the pointers advance by one
+//When those addresses are accessed, the pointers advance by one
 //automatically. When end of buffer is reached, the pointer loop around
 //to the begining of the buffer.
 //
@@ -42,14 +40,17 @@
 // to linear after data transfer.
 //-----
 
-//--------------------------------------------------------------
-//The definitions below must be the same as the ones in a2bus.c
-extern union {
+//---------------------------------------------------------------------
+//Mega Flash Registers at $C0C0-C0CF
+//We can have up to 16 registers if A2 and A3 address lines are connected.
+//The 16 registers are divided into 4 chunks. Each PIO state machine is
+//responsible for 4 registers. e.g. State machine 0 is responsible for
+//$C0C0-$C0C4
+union {
   uint8_t  r[16];     //Individual 8-bit registers
   uint32_t i32[4];    //Chunks of 4 32-bit registers
 } registers;
 //---------------------------------------------------------------------
-
 
 //---------------------------------------------------------------------
 // Parameter / Data Buffers
@@ -90,7 +91,7 @@ void __no_inline_not_in_flash_func(BusLoopDataInit)() {
 }
 
 void __no_inline_not_in_flash_func(BusLoop)() {
-  const uint READFLAG = (1<<4); //Read flag is at bit 4
+  const uint32_t READFLAG = (1<<4); //Read flag is at bit 4
 
   while(true) {
     //8-bit data from Apple + RnW Flag + 4-bit address from Apple

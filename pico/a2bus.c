@@ -3,21 +3,6 @@
 #include "hardware/clocks.h"
 #include "a2bus.h"
 
-
-
-//---------------------------------------------------------------------
-//Mega Flash Registers at $C0C0-C0CF
-//We can have up to 16 registers if A2 and A3 address lines are connected.
-//The 16 registers are divided into 4 chunks. Each PIO state machine is
-//responsible for 4 registers. e.g. State machine 0 is responsible for
-//$C0C0-$C0C4
-union {
-  uint8_t  r[16];     //Individual 8-bit registers
-  uint32_t i32[4];    //Chunks of 4 32-bit registers
-} registers;
-//---------------------------------------------------------------------
-
-
 /////////////////////////////////////////////////////////////////
 // Initialize PIO Program
 

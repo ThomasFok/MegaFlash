@@ -21,15 +21,12 @@
 #include "tftpstate.h"
 
 //--------------------------------------------------------------
-//The definitions below must be the same as the ones in a2bus.c
+//The definitions below must be the same as the ones in busloop.c
 extern union {
   uint8_t  r[4];      //Individual 8-bit registers
   uint32_t chunk;     //A chunk of 4 registers
 } registers;
-//--------------------------------------------------------------
 
-//--------------------------------------------------------------
-//The definitions below must be the same as the ones in busloop.c
 extern uint8_t parameterBuffer[]; 
 extern uint8_t dataBuffer[];
 extern uint parameterBufferIndex;
@@ -39,6 +36,7 @@ extern transfermode_t dataBufferTransferMode;
 
 
 //Set to true to activate NTP Client now
+//defined in main.c
 extern volatile bool updateNTPNow;
 
 
