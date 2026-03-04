@@ -7,10 +7,9 @@
 #include "busloop_wa.h"
 
 //---------------------------------------------------------------------
-//After Power on reset, MegaFlash is not activated since it is possible
-//that the Apple II may be running stock firmware. The firmware
-//may accidentally corrupt the data in MegaFlash.
-//MegaFlash can be activated by reading the following addresses in sequence.
+//After Power on reset, MegaFlash is in Slinky emulation mode
+//MegaFlash can be switched to native mode by reading the following 
+//addresses in sequence.
 //
 //$C0C2
 //$C0C0
@@ -18,7 +17,7 @@
 //$C0C3
 //$C0C1
 //
-//Then, MegaFlash is activated and this function returns.
+//Then, this function returns and MegaFlash switches to native mode.
 //
 //Note: The stock firmware has serious bugs in testsize and makecat
 //routines. Both routines use the slinky address registers as loop
@@ -37,19 +36,24 @@
 //Thus, data register $C0C3 should be initalize to 0
 //
 //So, we initialize slinky registers to 0x00f0f000.
+//---------------------------------------------------------------------
 
-//--------------------------------------------------------------
-//The definitions below must be the same as the ones in a2bus.c
-extern union {
-  uint8_t  r[16];     //Individual 8-bit registers
-  uint32_t i32[4];    //Chunks of 4 32-bit registers
-} registers;
-//--------------------------------------------------------------
+/**********************************************************************
+
+Emulate a 0kB Slinky card. Waiting for switching to native mode
+RP2040 does not have enough RAM to emulate a Skinly RAM card.
+
+**********************************************************************/
 
 
-
-void __no_inline_not_in_flash_func(BusLoopWaitActiviation)() {
+// No need to put this function to RAM since
+// we don't rush to write any result back to MegaFlash I/O
+// registers.
+void BusLoopWaitActiviation() {
   const uint32_t REGINITVAL = 0x00f0f000;
+  
+  //Initalize Slinky Registers
+  UpdateMegaFlashRegisters(0,REGINITVAL);
   
   enum {
     STATENULL,
@@ -61,10 +65,6 @@ void __no_inline_not_in_flash_func(BusLoopWaitActiviation)() {
   } state = STATENULL;
     
   const uint READFLAG = (1<<4); //Read flag is at bit 4
-
-  registers.i32[0] = REGINITVAL;
-  UpdateMegaFlashRegisters(0,REGINITVAL);
-  
   do {
     //8-bit data from Apple + RnW Flag + 4-bit address from Apple
     uint32_t busdata = GetAppleBusBlocking();
