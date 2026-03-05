@@ -146,7 +146,7 @@ static void LoadFAC(const uint8_t *src) {
     exp += 894;
 
     //Shift in Exponent
-    fac.ix |= exp;
+    fac.ix |= exp;      //1 sign bit + 11-bit exponent in fac.ix                
   
     //Shift 7-bit mantissa byte 1
     fac.ix<<= 7;
@@ -193,7 +193,7 @@ static void LoadARG(const uint8_t *src) {
 
     //Shift in Exponent
     exp += 894;
-    arg.ix |= exp;
+    arg.ix |= exp;        //1 sign bit + 11-bit exponent in arg.ix              
 
     //Shift in 7-bit mantissa byte 1
     arg.ix<<= 7;
