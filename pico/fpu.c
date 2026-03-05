@@ -59,10 +59,11 @@
 // no performance gain at all.
 //
 
-//To access double as uint64_t
+//To access double as 2 uint32_t or 1 uint64_t
 typedef union {
   double   d;
-  uint64_t ix;
+  uint32_t i32[2];
+  uint64_t i64;
 } double_ui64;
 
 //Global Variables
@@ -125,17 +126,94 @@ double_ui64 fac, arg, result;
 //
 // Input: Pointer to source data buffer
 //
+#if 1
+//
+//New implementation. endian-dependent, 30% faster, using 32-bit integer only
+//
+static void LoadFAC(const uint8_t *src) {
+  #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+  const uint32_t LOW =  0; 
+  const uint32_t HIGH = 1;
+  #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+  const uint32_t LOW =  1;
+  const uint32_t HIGH = 0;  
+  #else 
+  #error "unknown __BYTE_ORDER__"
+  #endif
+  
+  //
+  //Convert FAC
+  //
+  fac.i32[LOW]  = 0; //Set fac to 0
+  fac.i32[HIGH] = 0;
+  uint16_t exp = (uint16_t)src[FACEXP];
+
+  //No further processing needed if exp==0 (It means fac is zero.)
+  if (exp == 0) return;
+  
+  //
+  // Upper 32-bit of double (fac.i32[HIGH])
+  //
+  
+  //Sign bit
+  if (src[FACSIGN] & 0x80) fac.i32[HIGH] |= 1ull << 11; //Set sign bit to 1, leave 11-bit for storing exponent
+
+  //Exponent adjustment
+  // e =  e -0x80 + 1023 -1
+  // -0x80 to remove MBF bias
+  // +1023 to add double bias
+  // -1 to adjust the position of decimal point of double
+  // So, overall adjusment is e = e + 894
+  exp += 894;
+
+  //Store Exponent
+  fac.i32[HIGH] |= exp;      //1 sign bit + 11-bit exponent in fac.i32[HIGH]               
+
+  //Shift 7-bit mantissa byte 1
+  fac.i32[HIGH]<<= 7;
+  fac.i32[HIGH] |= (src[FACMANTISSA1] & 0x7f);  //Remove the most significant bit, which is implied in double format
+
+  //Mantissa byte 2
+  fac.i32[HIGH]<<= 8;  
+  fac.i32[HIGH] |= src[FACMANTISSA2];  //27-bit in fac.i32[HIGH];
+  
+  //Mantissa byte 3, upper 5 bit
+  fac.i32[HIGH]<<=5;
+  fac.i32[HIGH] |= src[FACMANTISSA3]>>3;   
+  
+  //
+  // Lower 32-bit of double (fac.i32[LOW])
+  //
+
+  //Mantissa byte 3, lower 3 bit
+  fac.i32[LOW] = src[FACMANTISSA3]&0b111;
+
+  //Mantissa byte 4
+  fac.i32[LOW]<<= 8;  
+  fac.i32[LOW] |= src[FACMANTISSA4];
+
+  //FAC Extension
+  fac.i32[LOW]<<= 8;  
+  fac.i32[LOW] |= src[FACEXT];
+
+  //Shift-in 13 zero bits
+  fac.i32[LOW] <<= 13;
+}
+#else
+//
+//Old implementation. endian-neutral, slower, using 64-bit integer
+//
 static void LoadFAC(const uint8_t *src) {
   //
   //Convert FAC
   //
-  fac.ix = 0; //Set fac to 0
+  fac.i64 = 0; //Set fac to 0
   uint16_t exp = (uint16_t)src[FACEXP];
 
   //No further processing needed if exp==0 (It means fac is zero.)
   if (exp != 0) {
     //Sign bit
-    if (src[FACSIGN] & 0x80) fac.ix |= 1ull << 11; //Set sign bit to 1, leave 11-bit for storing exponent
+    if (src[FACSIGN] & 0x80) fac.i64 |= 1ull << 11; //Set sign bit to 1, leave 11-bit for storing exponent
 
     //Exponent adjustment
     // e =  e -0x80 + 1023 -1
@@ -146,32 +224,33 @@ static void LoadFAC(const uint8_t *src) {
     exp += 894;
 
     //Shift in Exponent
-    fac.ix |= exp;      //1 sign bit + 11-bit exponent in fac.ix                
+    fac.i64 |= exp;      //1 sign bit + 11-bit exponent in fac.i64                
   
     //Shift 7-bit mantissa byte 1
-    fac.ix<<= 7;
-    fac.ix |= (src[FACMANTISSA1] & 0x7f);  //Remove the most significant bit, which is implied in double format
+    fac.i64<<= 7;
+    fac.i64 |= (src[FACMANTISSA1] & 0x7f);  //Remove the most significant bit, which is implied in double format
 
     //Mantissa byte 2
-    fac.ix<<= 8;  
-    fac.ix |= src[FACMANTISSA2];
+    fac.i64<<= 8;  
+    fac.i64 |= src[FACMANTISSA2];
 
     //Mantissa byte 3
-    fac.ix<<= 8;  
-    fac.ix |= src[FACMANTISSA3];
+    fac.i64<<= 8;  
+    fac.i64 |= src[FACMANTISSA3];
 
     //Mantissa byte 4
-    fac.ix<<= 8;  
-    fac.ix |= src[FACMANTISSA4];
+    fac.i64<<= 8;  
+    fac.i64 |= src[FACMANTISSA4];
 
     //FAC Extension
-    fac.ix<<= 8;  
-    fac.ix |= src[FACEXT];
+    fac.i64<<= 8;  
+    fac.i64 |= src[FACEXT];
 
     //Shift-in 13 zero bits
-    fac.ix <<= 13;
+    fac.i64 <<= 13;
   }
 }
+#endif
 
 /////////////////////////////////////////////////////////////
 // Convert ARG from source data buffer to double and store it
@@ -179,42 +258,116 @@ static void LoadFAC(const uint8_t *src) {
 //
 // Input: Pointer to source data buffer
 //
+#if 1
+//
+//New implementation. endian-dependent, 30% faster, using 32-bit integer only
+//
+static void LoadARG(const uint8_t *src) {
+  #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+  const uint32_t LOW =  0; 
+  const uint32_t HIGH = 1;
+  #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+  const uint32_t LOW =  1;
+  const uint32_t HIGH = 0;  
+  #else 
+  #error "unknown __BYTE_ORDER__"
+  #endif
+  
+  //
+  //Convert ARG
+  //
+  arg.i32[LOW]  = 0; //Set arg to 0
+  arg.i32[HIGH] = 0;
+  uint16_t exp = (uint16_t)src[ARGEXP];
+
+  //No further processing needed if exp==0 (It means arg is zero.)
+  if (exp == 0) return;
+  
+  //
+  // Upper 32-bit of double (arg.i32[HIGH])
+  //
+  
+  //Sign bit
+  if (src[ARGSIGN] & 0x80) arg.i32[HIGH] |= 1ull << 11; //Set sign bit to 1, leave 11-bit for storing exponent
+
+  //Exponent adjustment
+  // e =  e -0x80 + 1023 -1
+  // -0x80 to remove MBF bias
+  // +1023 to add double bias
+  // -1 to adjust the position of decimal point of double
+  // So, overall adjusment is e = e + 894
+  exp += 894;
+
+  //Store Exponent
+  arg.i32[HIGH] |= exp;      //1 sign bit + 11-bit exponent in fac.i32[HIGH]               
+
+  //Shift 7-bit mantissa byte 1
+  arg.i32[HIGH]<<= 7;
+  arg.i32[HIGH] |= (src[ARGMANTISSA1] & 0x7f);  //Remove the most significant bit, which is implied in double format
+
+  //Mantissa byte 2
+  arg.i32[HIGH]<<= 8;  
+  arg.i32[HIGH] |= src[ARGMANTISSA2];  //27-bit in fac.i32[HIGH];
+  
+  //Mantissa byte 3, upper 5 bit
+  arg.i32[HIGH]<<=5;
+  arg.i32[HIGH] |= src[ARGMANTISSA3]>>3;   
+  
+  //
+  // Lower 32-bit of double (fac.i32[LOW])
+  //
+
+  //Mantissa byte 3, lower 3 bit
+  arg.i32[LOW] = src[ARGMANTISSA3]&0b111;
+
+  //Mantissa byte 4
+  arg.i32[LOW]<<= 8;  
+  arg.i32[LOW] |= src[ARGMANTISSA4];
+
+  //Shift-in 13+8 zero bits
+  arg.i32[LOW] <<= 13+8;
+}
+#else
+//
+//Old implementation. endian-neutral, slower, using 64-bit integer  
+//
 static void LoadARG(const uint8_t *src) {
   //
   //Convert ARG
   //
-  arg.ix = 0;  
+  arg.i64 = 0;  
   uint16_t exp = (uint16_t)src[ARGEXP];
 
   //No further processing needed if exp==0
   if (exp != 0) {
     //Sign bit
-    if (src[ARGSIGN] & 0x80) arg.ix |= 1ull << 11; //Set sign bit to 1, leave 11-bit for storing exponent
+    if (src[ARGSIGN] & 0x80) arg.i64 |= 1ull << 11; //Set sign bit to 1, leave 11-bit for storing exponent
 
     //Shift in Exponent
     exp += 894;
-    arg.ix |= exp;        //1 sign bit + 11-bit exponent in arg.ix              
+    arg.i64 |= exp;        //1 sign bit + 11-bit exponent in arg.i64              
 
     //Shift in 7-bit mantissa byte 1
-    arg.ix<<= 7;
-    arg.ix |= (src[ARGMANTISSA1] & 0x7f);  //Remove the most significant bit, which is implied in double format
+    arg.i64<<= 7;
+    arg.i64 |= (src[ARGMANTISSA1] & 0x7f);  //Remove the most significant bit, which is implied in double format
 
     //Mantissa byte 2
-    arg.ix<<= 8;  
-    arg.ix |= src[ARGMANTISSA2];
+    arg.i64<<= 8;  
+    arg.i64 |= src[ARGMANTISSA2];
 
     //Mantissa byte 3
-    arg.ix<<= 8;  
-    arg.ix |= src[ARGMANTISSA3];
+    arg.i64<<= 8;  
+    arg.i64 |= src[ARGMANTISSA3];
 
     //Mantissa byte 4
-    arg.ix<<= 8;  
-    arg.ix |= src[ARGMANTISSA4];
+    arg.i64<<= 8;  
+    arg.i64 |= src[ARGMANTISSA4];
 
     //Shift-in 13+8 zero bits
-    arg.ix<<= 13+8;
+    arg.i64<<= 13+8;
   }
 }
+#endif
 
 /////////////////////////////////////////////////////////////
 // Convert Both FAC and ARG from source data buffer to double 
@@ -251,7 +404,7 @@ static void StoreResult(uint8_t *dest) {
   }
 
   //Get 11-bit exponent
-  uint16_t exponent = (uint16_t)(result.ix >> 52) & 0x7ff;
+  uint16_t exponent = (uint16_t)(result.i64 >> 52) & 0x7ff;
   //if exponent<=894, underflow occurs. return 0.0
   if (exponent <= 894) {
     memset(dest+1, 0, 7);
@@ -273,26 +426,26 @@ static void StoreResult(uint8_t *dest) {
   dest[RESSIGN] = (result.d < 0.0) ? 0x80 : 0;
 
   //Remove unused bits
-  result.ix >>= 13;
+  result.i64 >>= 13;
 
   //Get extension bit
-  dest[RESEXT] = (uint8_t)result.ix;
+  dest[RESEXT] = (uint8_t)result.i64;
 
   //Mantissa Byte 4
-  result.ix >>= 8;
-  dest[RESMANTISSA4] = (uint8_t)result.ix;
+  result.i64 >>= 8;
+  dest[RESMANTISSA4] = (uint8_t)result.i64;
 
   //Mantissa Byte 3
-  result.ix >>= 8;
-  dest[RESMANTISSA3] = (uint8_t)result.ix;
+  result.i64 >>= 8;
+  dest[RESMANTISSA3] = (uint8_t)result.i64;
 
   //Mantissa Byte 2
-  result.ix >>= 8;
-  dest[RESMANTISSA2] = (uint8_t)result.ix;
+  result.i64 >>= 8;
+  dest[RESMANTISSA2] = (uint8_t)result.i64;
 
   //Mantissa Byte 1, MSB + 7 bit mantissa
-  result.ix >>= 8;
-  dest[RESMANTISSA1] = (uint8_t)result.ix | 0x80 ; //7-bit mantissa, MSB is always set
+  result.i64 >>= 8;
+  dest[RESMANTISSA1] = (uint8_t)result.i64 | 0x80 ; //7-bit mantissa, MSB is always set
 }
 
 /////////////////////////////////////////////////////////////
