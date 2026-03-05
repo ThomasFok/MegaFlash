@@ -281,9 +281,12 @@ invalidlen:     stz a:stack-1,x         ;NULL Terminate the string
 ;
 ;FADD is not enabled because test result shows that
 ;the FPU implementation is actually slower than the 
-;original routine even at 1MHz
+;original routine even at 1MHz.
+;
+;It also generates different result when running 
+;Mandelbrot program.
 ; 
-.if 0     
+.if 0 ;Disabled
                 .segment "B0_E7C6"
                 ;The original code is 
                 ;E7C6: LDX $AC
