@@ -51,7 +51,8 @@ auto_init_mutex(ramdiskMutex);
 // RAMDisk has its own DMA channel to avoid potential conflict
 // with other routines
 //
-static dma_channel_config_t ramdisk_dma_config;
+static dma_channel_config_t ramdisk_copymem_config;
+static dma_channel_config_t ramdisk_zeromem_config;
 static int ramdisk_dma_channel;
 
 ////////////////////////////////////////////////////////
@@ -60,10 +61,13 @@ static int ramdisk_dma_channel;
 static void InitRamdiskDMAChannel() {
   ramdisk_dma_channel = dma_claim_unused_channel(true);
   
-  ramdisk_dma_config = dma_channel_get_default_config(ramdisk_dma_channel);
-  channel_config_set_transfer_data_size(&ramdisk_dma_config, DMA_SIZE_32);
-  channel_config_set_read_increment(&ramdisk_dma_config, true);
-  channel_config_set_write_increment(&ramdisk_dma_config, true);
+  ramdisk_copymem_config = dma_channel_get_default_config(ramdisk_dma_channel);
+  channel_config_set_transfer_data_size(&ramdisk_copymem_config, DMA_SIZE_32);
+  channel_config_set_read_increment(&ramdisk_copymem_config, true);
+  channel_config_set_write_increment(&ramdisk_copymem_config, true);
+  
+  ramdisk_zeromem_config = ramdisk_copymem_config;
+  channel_config_set_read_increment(&ramdisk_zeromem_config, false);
 }
 
 //////////////////////////////////////////////////////
@@ -81,12 +85,12 @@ static void RamdiskCopyMemory(uint8_t* dest,const uint8_t *src,const uint32_t le
   assert(!dma_channel_is_busy(ramdisk_dma_channel));  
   
   dma_channel_configure(
-      ramdisk_dma_channel,  // Channel to be configured
-      &ramdisk_dma_config,  // The DMA configuration
-      dest,                 // The initial write address
-      src,                  // The initial read address
-      len/4,                // Number of transfers
-      true                  // Start immediately.
+      ramdisk_dma_channel,      // Channel to be configured
+      &ramdisk_copymem_config,  // The DMA configuration
+      dest,                     // The initial write address
+      src,                      // The initial read address
+      len/4,                    // Number of transfers
+      true                      // Start immediately.
   );
   
   dma_channel_wait_for_finish_blocking(ramdisk_dma_channel);  
@@ -105,18 +109,16 @@ static void RamdiskZeroMemory(uint8_t *dest,const uint32_t len) {
   assert(!dma_channel_is_busy(ramdisk_dma_channel));    
   const uint32_t src[] = {0};
   
-  const dma_channel_config orgConfig = ramdisk_dma_config;        //Save Original Config
-  channel_config_set_read_increment(&ramdisk_dma_config, false);  //Set read increment to false
+  //channel_config_set_read_increment(&ramdisk_copymem_config, false);  //Set read increment to false
   dma_channel_configure(
-      ramdisk_dma_channel,  // Channel to be configured
-      &ramdisk_dma_config,  // The DMA configuration
-      dest,                 // The initial write address
-      src,                  // The initial read address
-      len/4,                // Number of transfers
-      true                  // Start immediately.
+      ramdisk_dma_channel,      // Channel to be configured
+      &ramdisk_zeromem_config,  // The DMA configuration
+      dest,                     // The initial write address
+      src,                      // The initial read address
+      len/4,                    // Number of transfers
+      true                      // Start immediately.
   );
 
-  ramdisk_dma_config = orgConfig;   //restore original DMA Config 
   dma_channel_wait_for_finish_blocking(ramdisk_dma_channel);    
 }
 

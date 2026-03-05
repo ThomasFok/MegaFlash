@@ -17,8 +17,14 @@
 
 
 //Global Variables
-static dma_channel_config_t dma_config;
-static int channel;
+static int channel; 
+static dma_channel_config_t copymem_config_size32;
+static dma_channel_config_t copymem_config_size8;
+static dma_channel_config_t zeromem_config_size32;
+static dma_channel_config_t zeromem_config_size8;
+static dma_channel_config_t crc_config_size32;
+static dma_channel_config_t crc_config_size8;
+
 
 int GetMemoryDMAChannel() {
   return channel;
@@ -30,14 +36,39 @@ int GetMemoryDMAChannel() {
 // 
 void InitDMAChannel() {
   channel = dma_claim_unused_channel(true);
+
+  //
+  //Generate DMA config for various routines
+  //
+
+  //CopyMemoryAligned
+  copymem_config_size32 = dma_channel_get_default_config(channel);
+  channel_config_set_transfer_data_size(&copymem_config_size32, DMA_SIZE_32);
+  channel_config_set_read_increment(&copymem_config_size32, true);
+  channel_config_set_write_increment(&copymem_config_size32, true);
+  channel_config_set_sniff_enable(&copymem_config_size32, true);     //Enable CRC sniffer
   
-  dma_config = dma_channel_get_default_config(channel);
-  channel_config_set_transfer_data_size(&dma_config, DMA_SIZE_32);
-  channel_config_set_read_increment(&dma_config, true);
-  channel_config_set_write_increment(&dma_config, true);
+  //CopyMemory
+  copymem_config_size8 = copymem_config_size32;
+  channel_config_set_transfer_data_size(&copymem_config_size8, DMA_SIZE_8);
   
-  //Enable CRC sniffer
-  channel_config_set_sniff_enable(&dma_config, true);
+  //ZeroMemoryAligned
+  zeromem_config_size32 = copymem_config_size32;
+  channel_config_set_read_increment(&zeromem_config_size32, false);  
+  
+  //ZeroMemory
+  zeromem_config_size8 = copymem_config_size32;
+  channel_config_set_read_increment(&zeromem_config_size8, false);
+  channel_config_set_transfer_data_size(&zeromem_config_size8, DMA_SIZE_8);
+  
+  //CRC16Aligned, CRC32Aligned
+  crc_config_size32 = copymem_config_size32;
+  channel_config_set_write_increment(&crc_config_size32, false); 
+  
+  //CRC16, CRC32
+  crc_config_size8 = copymem_config_size32;
+  channel_config_set_write_increment(&crc_config_size8, false); 
+  channel_config_set_transfer_data_size(&crc_config_size8, DMA_SIZE_8);  
 }
 
 //////////////////////////////////////////////////////
@@ -50,18 +81,15 @@ void InitDMAChannel() {
 void CopyMemory(uint8_t* dest,const uint8_t *src,const uint32_t len) {
   assert(!dma_channel_is_busy(channel));
  
-  const dma_channel_config orgConfig = dma_config; //Save Original Config 
-  channel_config_set_transfer_data_size(&dma_config, DMA_SIZE_8);
   dma_channel_configure(
-      channel,              // Channel to be configured
-      &dma_config,          // The DMA configuration
-      dest,                 // The initial write address
-      src,                  // The initial read address
-      len,                  // Number of transfers
-      true                  // Start immediately.
+      channel,                // Channel to be configured
+      &copymem_config_size8,  // The DMA configuration
+      dest,                   // The initial write address
+      src,                    // The initial read address
+      len,                    // Number of transfers
+      true                    // Start immediately.
   );
   
-  dma_config = orgConfig;   //restore original DMA Config
   dma_channel_wait_for_finish_blocking(channel);  
 }
 
@@ -80,12 +108,12 @@ void __no_inline_not_in_flash_func(CopyMemoryAligned)(uint8_t* dest,const uint8_
   assert(!dma_channel_is_busy(channel));  
   
   dma_channel_configure(
-      channel,              // Channel to be configured
-      &dma_config,          // The DMA configuration
-      dest,                 // The initial write address
-      src,                  // The initial read address
-      len/4,                // Number of transfers
-      true                  // Start immediately.
+      channel,                // Channel to be configured
+      &copymem_config_size32, // The DMA configuration
+      dest,                   // The initial write address
+      src,                    // The initial read address
+      len/4,                  // Number of transfers
+      true                    // Start immediately.
   );
   
   dma_channel_wait_for_finish_blocking(channel);  
@@ -109,12 +137,12 @@ void __no_inline_not_in_flash_func(CopyMemoryAlignedBG)(uint8_t* dest,const uint
   assert(!dma_channel_is_busy(channel));  
   
   dma_channel_configure(
-      channel,              // Channel to be configured
-      &dma_config,          // The DMA configuration
-      dest,                 // The initial write address
-      src,                  // The initial read address
-      len/4,                // Number of transfers
-      true                  // Start immediately.
+      channel,                // Channel to be configured
+      &copymem_config_size32, // The DMA configuration
+      dest,                   // The initial write address
+      src,                    // The initial read address
+      len/4,                  // Number of transfers
+      true                    // Start immediately.
   );
 }
 
@@ -126,21 +154,17 @@ void __no_inline_not_in_flash_func(CopyMemoryAlignedBG)(uint8_t* dest,const uint
 //
 void ZeroMemory(uint8_t *dest,const uint32_t len) {
   assert(!dma_channel_is_busy(channel));    
-  const uint32_t src[] = {0};
+  const uint32_t src[] = {0}; 
   
-  const dma_channel_config orgConfig = dma_config; //Save Original Config
-  channel_config_set_transfer_data_size(&dma_config, DMA_SIZE_8);
-  channel_config_set_read_increment(&dma_config, false);  //Set read increment to false
   dma_channel_configure(
-      channel,              // Channel to be configured
-      &dma_config,          // The DMA configuration
-      dest,                 // The initial write address
-      src,                  // The initial read address
-      len,                  // Number of transfers
-      true                  // Start immediately.
+      channel,                // Channel to be configured
+      &zeromem_config_size8,  // The DMA configuration
+      dest,                   // The initial write address
+      src,                    // The initial read address
+      len,                    // Number of transfers
+      true                    // Start immediately.
   );
   
-  dma_config = orgConfig;   //restore original DMA Config 
   dma_channel_wait_for_finish_blocking(channel);    
 }
 
@@ -157,18 +181,15 @@ void __no_inline_not_in_flash_func(ZeroMemoryAligned)(uint8_t *dest,const uint32
   assert(!dma_channel_is_busy(channel));    
   const uint32_t src[] = {0};
   
-  const dma_channel_config orgConfig = dma_config; //Save Original Config
-  channel_config_set_read_increment(&dma_config, false);  //Set read increment to false
   dma_channel_configure(
-      channel,              // Channel to be configured
-      &dma_config,          // The DMA configuration
-      dest,                 // The initial write address
-      src,                  // The initial read address
-      len/4,                // Number of transfers
-      true                  // Start immediately.
+      channel,                // Channel to be configured
+      &zeromem_config_size32, // The DMA configuration
+      dest,                   // The initial write address
+      src,                    // The initial read address
+      len/4,                  // Number of transfers
+      true                    // Start immediately.
   );
 
-  dma_config = orgConfig;   //restore original DMA Config 
   dma_channel_wait_for_finish_blocking(channel);    
 }
 
@@ -185,18 +206,14 @@ void __no_inline_not_in_flash_func(ZeroMemoryAlignedBG)(uint8_t *dest,const uint
   assert(!dma_channel_is_busy(channel));    
   const uint32_t src[] = {0};
   
-  const dma_channel_config orgConfig = dma_config; //Save Original Config
-  channel_config_set_read_increment(&dma_config, false);  //Set read increment to false
   dma_channel_configure(
-      channel,              // Channel to be configured
-      &dma_config,          // The DMA configuration
-      dest,                 // The initial write address
-      src,                  // The initial read address
-      len/4,                // Number of transfers
-      true                  // Start immediately.
+      channel,                // Channel to be configured
+      &zeromem_config_size32, // The DMA configuration
+      dest,                   // The initial write address
+      src,                    // The initial read address
+      len/4,                  // Number of transfers
+      true                    // Start immediately.
   );
-
-  dma_config = orgConfig;   //restore original DMA Config 
 }
 
 
@@ -212,21 +229,17 @@ uint32_t CRC16(const uint8_t *src,const uint32_t len) {
   assert(!dma_channel_is_busy(channel));    
   uint32_t dest[1];   //dummy dest
   
-  const dma_channel_config orgConfig = dma_config; //Save Original Config 
   SetCRC16Seed(channel,DEFAULT_CRC16_SEED);
-  channel_config_set_write_increment(&dma_config, false); //Set write increment to false
-  channel_config_set_transfer_data_size(&dma_config, DMA_SIZE_8);
   
   dma_channel_configure(
       channel,              // Channel to be configured
-      &dma_config,          // The DMA configuration
+      &crc_config_size8,    // The DMA configuration
       dest,                 // The initial write address
       src,                  // The initial read address
       len,                  // Number of transfers
       true                  // Start immediately.
   );
   
-  dma_config = orgConfig;   //restore original DMA Config 
   dma_channel_wait_for_finish_blocking(channel);    
   
   return GetCRC();
@@ -247,20 +260,17 @@ uint32_t CRC16Aligned(const uint8_t *src,const uint32_t len) {
   assert((uint32_t)src%4==0);   //must be 32-bit aligned  
   uint32_t dest[1];             //dummy dest
   
-  const dma_channel_config orgConfig = dma_config; //Save Original Config   
   SetCRC16Seed(channel,DEFAULT_CRC16_SEED);
-  channel_config_set_write_increment(&dma_config, false); //Set write increment to false
   
   dma_channel_configure(
       channel,              // Channel to be configured
-      &dma_config,          // The DMA configuration
+      &crc_config_size32,   // The DMA configuration
       dest,                 // The initial write address
       src,                  // The initial read address
       len/4,                // Number of transfers
       true                  // Start immediately.
   );
   
-  dma_config = orgConfig;   //restore original DMA Config 
   dma_channel_wait_for_finish_blocking(channel);    
   
   return GetCRC();
@@ -281,21 +291,17 @@ uint32_t CRC32(const uint8_t *src,const uint32_t len) {
   assert(!dma_channel_is_busy(channel));    
   uint32_t dest[1];   //dummy dest
   
-  const dma_channel_config orgConfig = dma_config; //Save Original Config     
   SetCRC32Seed(channel,DEFAULT_CRC32_SEED);
-  channel_config_set_write_increment(&dma_config, false); //Set write increment to false
-  channel_config_set_transfer_data_size(&dma_config, DMA_SIZE_8);
   
   dma_channel_configure(
       channel,              // Channel to be configured
-      &dma_config,          // The DMA configuration
+      &crc_config_size8,    // The DMA configuration
       dest,                 // The initial write address
       src,                  // The initial read address
       len,                  // Number of transfers
       true                  // Start immediately.
   );
   
-  dma_config = orgConfig;   //restore original DMA Config 
   dma_channel_wait_for_finish_blocking(channel);    
   
   return GetCRC();
@@ -320,20 +326,17 @@ uint32_t CRC32Aligned(const uint8_t *src,const uint32_t len) {
   assert((uint32_t)src%4==0);   //must be 32-bit aligned  
   uint32_t dest[1];             //dummy dest
   
-  const dma_channel_config orgConfig = dma_config; //Save Original Config   
   SetCRC32Seed(channel,DEFAULT_CRC32_SEED);
-  channel_config_set_write_increment(&dma_config, false); //Set write increment to false
   
   dma_channel_configure(
       channel,              // Channel to be configured
-      &dma_config,          // The DMA configuration
+      &crc_config_size32,   // The DMA configuration
       dest,                 // The initial write address
       src,                  // The initial read address
       len/4,                // Number of transfers
       true                  // Start immediately.
   );
   
-  dma_config = orgConfig;   //restore original DMA Config 
   dma_channel_wait_for_finish_blocking(channel);    
   
   return GetCRC();
