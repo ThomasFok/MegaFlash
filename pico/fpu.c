@@ -54,7 +54,10 @@
 // should copy them to FAC.
 //
 
-
+///////////////////////////////////////////////////////////////////
+// Benchmark test shows that putting the routines in RAM has
+// no performance gain at all.
+//
 
 //To access double as uint64_t
 typedef union {
