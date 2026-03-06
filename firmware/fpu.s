@@ -33,6 +33,14 @@ arg             := $A5          ;arg location (6 bytes)
 stack           := $100         ;Bottom of stack
 
 
+;
+;Build Flag
+;
+;Unroll the data transfer loop to increase performance.
+;It increases the code size by 65 bytes
+UNROLL_LOOP     EQU    1
+
+
 .if FPUSUPPORT
 
 ;*******************************************************************
@@ -152,6 +160,32 @@ usefpu:         ;
                 stz cmdreg    
                 
                 ;Send fac and arg to parameter buffer
+.if UNROLL_LOOP                
+                lda fac+5
+                sta paramreg
+                lda arg+5
+                sta paramreg
+                lda fac+4
+                sta paramreg
+                lda arg+4
+                sta paramreg
+                lda fac+3
+                sta paramreg
+                lda arg+3
+                sta paramreg
+                lda fac+2
+                sta paramreg
+                lda arg+2
+                sta paramreg
+                lda fac+1
+                sta paramreg
+                lda arg+1
+                sta paramreg
+                lda fac+0
+                sta paramreg
+                lda arg+0
+                sta paramreg
+.else
                 ldx #5          ;6 bytes for fac and arg
 :               lda fac,x
                 sta paramreg
@@ -159,7 +193,8 @@ usefpu:         ;
                 sta paramreg
                 dex
                 bpl :-
-                
+.endif               
+               
                 ;Send fac extension
                 lda facext
                 sta paramreg
@@ -192,7 +227,6 @@ usefpu:         ;
                 beq fout_result
 
                 ;Wait until operation completes
-                ldx #5          ;Preload x=5, routine at noerr assumes x=5                
 :               bit statusreg
                 bmi :-          
                 
@@ -201,7 +235,26 @@ usefpu:         ;
                 bne err         ;error if errorcode != 0
                 
                 ;Get Calculation Result
-noerr:          ;x=5   
+noerr:          
+.if UNROLL_LOOP
+                ;Unroll the loop for maximum performance
+                lda paramreg    ;Get FAC
+                sta fac+5
+                lda paramreg
+                sta fac+4               
+                lda paramreg
+                sta fac+3
+                lda paramreg
+                sta fac+2
+                lda paramreg
+                sta fac+1
+                lda paramreg
+                sta fac+0
+                lda paramreg    ;Get FAC Extension
+                sta facext
+                jmp swrts       ;Done!
+.else
+                ldx #5          ;6 bytes
 :               lda paramreg    ;Get FAC
                 sta fac,x       ;
                 dex
@@ -209,7 +262,7 @@ noerr:          ;x=5
                 lda paramreg    ;Get FAC Extension
                 sta facext
                 jmp swrts       ;Done!
-                
+.endif
                 ;
                 ;Error Handlers
                 ;Those Applesoft Error Handlers are in Main ROM Bank
@@ -288,7 +341,7 @@ invalidlen:     stz a:stack-1,x         ;NULL Terminate the string
 ;the FPU implementation is actually slower than the 
 ;original routine even at 1MHz.
 ; 
-.if 1 ;Disabled
+.if 0 ;Disabled
                 .segment "B0_E7C6"
                 ;The original code is 
                 ;E7C6: LDX $AC
