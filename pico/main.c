@@ -193,7 +193,7 @@ int main() {
   //
   //Print Debug Infomation to serial port
   //
-  DEBUG_PRINTF("\nMegaflash DEBUG Firmware Version %d\n",FIRMWAREVER);
+  DEBUG_PRINTF("\nMegaFlash DEBUG Firmware Version %d\n",FIRMWAREVER);
   DEBUG_PRINTF("sys_pll   = %dMHz\n",frequency_count_khz(CLOCKS_FC0_SRC_VALUE_PLL_SYS_CLKSRC_PRIMARY)/1000);
   DEBUG_PRINTF("clk_sys   = %dMHz\n",clock_get_hz(clk_sys)/1000000);
   DEBUG_PRINTF("clk_peri  = %dMHz\n",clock_get_hz(clk_peri)/1000000);
