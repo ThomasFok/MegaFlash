@@ -36,16 +36,16 @@
 				
         .segment "B1_DF00"
         .incbin "b1_df00.bin"
-        
-        .segment "B1_D6CE"
-        .incbin "b1_d6ce.bin"
-        
-        .segment "B1_D516"
-        .incbin "b1_d516.bin"
-        
+
         .segment "B1_DB63"
         .incbin "b1_db63.bin" 
         
+        .segment "B1_D516"
+        .incbin "b1_d516.bin"
+
+        .segment "B1_D6CE"
+        .incbin "b1_d6ce.bin"        
+
         ;
         ;Patches
         ;   
