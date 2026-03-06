@@ -749,8 +749,8 @@ static int formatApplesoftString(double d, char* buf) {
   
   //Fast track if d==0
   if (d==0.0) {
-    buf[1]='0';
-    buf[2]='\0';
+    buf[0]='0';
+    buf[1]='\0';
     return 1; //Length = 1
   }else if (d < 0.0) {  //negative?
     *buf++ = '-';
