@@ -332,7 +332,7 @@ static void StoreResult(uint8_t *dest) {
   dest[RESEXP] = (uint8_t)exponent; 
 
   //Get sign bit
-  dest[RESERROR] = (result.i32[HIGH] & 0x80000000) ? 0x80:0;
+  dest[RESSIGN] = (result.i32[HIGH] & 0x80000000) ? 0x80:0;
 
   //
   // Lower 32-bit of double (result.i32[LOW])
