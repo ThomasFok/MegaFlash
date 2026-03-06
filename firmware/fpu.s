@@ -14,7 +14,8 @@
                 ;
                 ; Imports
                 ;
-                .import fpuenabled
+                .import fpuenabled      ;From slotrom.s
+                .import swjmp_ay        ;From megaflash.s
 
                 ;
                 ; Exports
@@ -109,8 +110,6 @@ stack           := $100         ;Bottom of stack
 ;
 
 
-
-
                 .segment "B0_C7FC"
                 .reloc
 fpu_exec:       sta rombank             ;First, Switch to Aux Bank
@@ -179,6 +178,8 @@ usefpu:         ;
                 ;set the busy flag in time. Although test program shows that there is
                 ;no issue currently, adding delay before polling the busy flag can avoid
                 ;potential problems in the future.
+                ;
+                ;Faster than 4 PLA instructions (4 cycles)
                 tsx     ;2 Cycles
                 inx     ;2 Cycles
                 inx     ;2 Cycles
@@ -197,13 +198,8 @@ usefpu:         ;
                 
                 ;Test Error Flags
                 lda paramreg
-                beq noerr       ;Bypass all tests if errorcode = 0
-                asl a           ;C=bit 7, N=bit 6
-                bcs jmpov       ;Test bit 7, Branch if Overflow Error
-                bmi jmp0div     ;Test bit 6, Branch if Divison by Zero Error
-                bne jmpiqerr    ;Test bit 5-0, Branch to Illeqal Quantity Error
-                                ;if any of these bit is set
-
+                bne err         ;error if errorcode != 0
+                
                 ;Get Calculation Result
 noerr:          ;x=5   
 :               lda paramreg    ;Get FAC
@@ -221,17 +217,25 @@ noerr:          ;x=5
                 ;The solution is to push the destination address to stack
                 ;and execute jmp swrts to switch bank + RTS.
                 ;
-jmpov:          lda #.HIBYTE(overflow-1)      ;Overflow Error                     
-                ldx #.LOBYTE(overflow-1)
-pushrts:        pha
-                phx
-                jmp swrts
-jmp0div:        lda #.HIBYTE(zerodiv-1)       ;Divison by Zero Error                        
-                ldx #.LOBYTE(zerodiv-1)
-                bra pushrts
-jmpiqerr:       lda #.HIBYTE(iqerr-1)         ;Illegal Quantity Error                           
-                ldx #.LOBYTE(iqerr-1)
-                bra pushrts
+                ;There are only 3 possible errors.
+                ;Overflow:         0b10000000
+                ;Division by Zero: 0b01000000
+                ;Illegal Quantity: 0b00100000
+                
+err:            asl a           ;move bit 7 to C, bit 6 to N
+                bcs jmpov       ;Test bit 7, Branch if Overflow Error
+                bmi jmp0div     ;Test bit 6, Branch if Divison by Zero Error
+                ;Assume Illegal Quantity Error if reach here
+              
+jmpiqerr:       ld16iay iqerr-1         ;Illegal Quantity Error            
+swjmp:          jmp swjmp_ay            ;switch bank, jmp to AY+1
+      
+jmpov:          ld16iay overflow-1      ;Overflow Error                     
+                bra swjmp
+
+jmp0div:        ld16iay zerodiv-1       ;Division by Zero Error                        
+                bra swjmp
+
                 
 fout_result:    ;
                 ;Special handling for CMD_FOUT
@@ -260,17 +264,18 @@ fout_result:    ;
 :               bit statusreg
                 bmi :- 
                 
-                ;Copy the string including NULL characters
-                ;to address (stack-1)+yval        
+                ;Check if len is valid
                 ldy paramreg    ;Number of Chars (excluding the NULL char)
                 beq invalidlen  ;If y=0 or y>20, something's got wrong. Dont copy.
                 cpy #21         ;Output an empty string instead
                 bge invalidlen  ;            
                 
+                ;Copy the string including NULL characters
+                ;to address (stack-1)+yval                 
 :               lda paramreg
                 sta a:stack-1,x ;Force absolute adressing mode
                 inx
-                dey
+                dey             ;y is loop counter
                 bne :-
 invalidlen:     stz a:stack-1,x         ;NULL Terminate the string
                 lda #.LOBYTE(stack)     ;Original Implementation sets AY to stack              
@@ -283,7 +288,7 @@ invalidlen:     stz a:stack-1,x         ;NULL Terminate the string
 ;the FPU implementation is actually slower than the 
 ;original routine even at 1MHz.
 ; 
-.if 0 ;Disabled
+.if 1 ;Disabled
                 .segment "B0_E7C6"
                 ;The original code is 
                 ;E7C6: LDX $AC

@@ -33,19 +33,26 @@ _MACROS_INC = 1
 
 ;Load 16-bit immediate value to memory destination
 .macro ld16i dest,immed
-        .if .LOBYTE(immed)=0
-                stz dest
-        .else
-                lda #.LOBYTE(immed)
-                sta dest
-        .endif
-        .if .HIBYTE(immed)=0
-                stz dest+1
-        .else
-                lda #.HIBYTE(immed)
-                sta dest+1
-        .endif                
+	.if .LOBYTE(immed)=0
+					stz dest
+	.else
+					lda #.LOBYTE(immed)
+					sta dest
+	.endif
+	.if .HIBYTE(immed)=0
+					stz dest+1
+	.else
+					lda #.HIBYTE(immed)
+					sta dest+1
+	.endif                
 .endmacro
+
+;Load 16-bit immediate value to AY (A=LOBYTE, Y=HIBYTE)
+.macro ld16iay immed
+	lda #.LOBYTE(immed)
+	ldy #.HIBYTE(immed)
+.endmacro
+
 
 .macro skip1
 	.byte $24	;opcode of bit zp, to skip the next 1 byte instruction

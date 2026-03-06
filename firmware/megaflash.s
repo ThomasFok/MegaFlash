@@ -116,6 +116,7 @@
                 .export isonline,getdevstatus,getunitstatus,readblock,writeblock,coldstartinit,writeblocksizetovdh
                 .export getdsb,getdib
                 .export clockdriver,clockdriverimpl,loadcpanel
+                .export swjmp_ay
                 
                 ;.exportzp SPNUMDEV
                 .if DEBUG
@@ -252,9 +253,8 @@ nomf:
                 stz toshowbootmenu      ;Clear the MSB of toshowbootmenu
       
                 jsr copybm              ;Copy Boot Menu code to RAM
-                lda #.LOBYTE(BMRUN-1)   ;Execute Boot Menu
-                ldy #.HIBYTE(BMRUN-1)   ;
-                bra swjmp               ;
+                ld16iay BMRUN-1         ;Execute Boot Menu. Load AY = BMRUN-1
+                bra swjmp_ay_sp0        ;jmp to it
 
 nobootmenu:     ;exit here
                 ;The original code at $BF19 is jmp($0000)
@@ -268,7 +268,7 @@ nobootmenu:     ;exit here
                 bne :+          ;If not 0, dec low byte only
                 dey             ;Dec High Byte
 :               dec             ;Dec Low Byte
-                ;fall into swjmp
+                ;fall into swjmp_ay_sp0
                 
 ;----------------------------------------------------------
 ;JMP to Bank 0 address
@@ -279,13 +279,15 @@ nobootmenu:     ;exit here
 ;Jump to swrts to Switch bank, then use RTS instruction
 ;to jump to the destination
 ;
+;swjmp_ay is the entry point without resetting SP
+;
 ; Input: A = Low byte of destination Address-1
 ;        Y = High byte of destination Address-1
 ;
 ;                
-swjmp:          ldx #$ff        ;Reset Stack Pointer
+swjmp_ay_sp0:   ldx #$ff        ;Reset Stack Pointer
                 txs             ;
-                phy             ;Push High Byte
+swjmp_ay:       phy             ;Push High Byte
                 pha             ;Push Low Byte
                 jmp swrts       ;Switch bank, then RTS
 
@@ -296,7 +298,7 @@ swjmp:          ldx #$ff        ;Reset Stack Pointer
                 .reloc
 shortdelay:     jsr :+
 :               rts
-                .segment HOMESEGMENT    ;Restore th HOMESEGMENT
+                .segment HOMESEGMENT    ;Restore to HOMESEGMENT
                 .reloc
 
 ;***********************************************************
