@@ -216,7 +216,7 @@ int main() {
       if (stdio_usb_connected()) {
         UserTerminal();
       } else {
-        sleep_ms(1000);
+        sleep_ms(500);
       }
     }
   }
