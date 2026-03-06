@@ -4,6 +4,7 @@ Version 1.0.1
 - Optimize readoneblock and writeoneblock routines
 - Move dispatch to ROM1 segment
 - Move getdib to ROM1 segment
+- FPU: Unroll data transfer routine to improve performance
 
 Version 1.0 13-Jul-2025 (FWVERSION = $01)
 - First Public Release
