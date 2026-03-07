@@ -44,7 +44,7 @@
 ;
 ; To call a handler through slxeq,
 ;
-; Load the handler ID, called mode, to A-register
+; Load the handler ID called mode to A-register
 ; Load any optional parameter to X-register
 ; Then, call slxeq routine
 ;
@@ -62,9 +62,11 @@
 ;***********************************************************
 
               
-                ;
-                ;Memory Allocation
-                ;
+;
+;Zero Page Memory Allocation
+;These memory addresses are not dedicated to MegaFlash.
+;Their values must be restored.
+;
                 .segment "ZEROPAGE":zeropage
                 .reloc
                 .exportzp aval,xval,yval,lcstate
@@ -78,42 +80,37 @@ lcstate:       .res 1
 ;Hook to original slxeq routine
 ;
 ;SLXEQHOOK is at $C755 of Bank 1
-;The code must be in IO area ($C100-C$FFF) since the langauge
-;card area may be switched to RAM.
 ;There are 14 bytes of space from $C755 to $C762.
-;Then, we continue in IOROM segment
+;Then, we continue in HOMESEGMENT segment
 ;                
                 
                 .segment "SLXEQHOOK"   
                 .reloc
-                ;Step 1 Save aval,xval,yval,lcstate to stack
-                ldy yval
-                phy
+               
+                ;Step 1 Save xval,lcstate to stack
                 ldy xval
+                phy
+                ldy lcstate
+                phy
+                
+                ;Step 2 Get LC State
+                ;It also switches LC Area to ROM
+                jsr getlc       ;A and X remains unchanged. return LC setting in Y           
+                sty lcstate     ;Save it to lcstate
+
+                jmp slxeq2
+                ;then, continue in HOMESEGMENT segment
+
+                .segment HOMESEGMENT
+                .reloc               
+slxeq2:         ;Step 3 Save yval,aval to stack
+                ldy yval
                 phy
                 ldy aval
                 phy
-                ldy lcstate
-                jmp slxeq2
-                ;then, continue in IOROM segment
 
-                .segment "IOROM"
-                .reloc               
-slxeq2:         phy
-
-                ;Step 2 Get LC State
-                ;It also switches LC Area to ROM
-                jsr getlc       ;A and X remains unchanged
-                sty lcstate     ;Save it to lcstate
-
-                ;Step 3 Execute the command by calling dispatcher
+                ;Step 4 Execute the command by calling dispatcher
                 jsr dispatch
-                
-                ;Step 4 Restore Language Card and lcstate
-                ldx lcstate
-                inc $c000,x
-                pla
-                sta lcstate
                 
                 ;Step 5 Restore aval,xval,yval and load return values to 
                 ;A,X and Y registers
@@ -127,26 +124,35 @@ slxeq2:         phy
                 ;
                 ;    SP ->
                 ;Offset +1: original aval
-                ;Offset +2: original xval
-                ;offset +3: original yval
+                ;Offset +2: original yval
+                ;Offset +3: original lcstate
+                ;offset +4: original xval
                 
                 tsx             ;X=SP
                 
-                ;Swap SP+3 and yval
-                ;so that yval is restored and the Y return value
-                ;is in the stack at offset +3
-                ldy $103,x      ;Get original value of yval
-                lda yval        ;Get Y return value
-                sty yval        ;Restore original value of yval
-                sta $103,x      ;Put Y return value to SP+3
-                
-                ;SP+2 -> xval
-                ;xval -> x
-                ;Now, X register holds the X return value
-                ;xval is restored.
-                ldy $102,x      ;Get original value of xval
-                ldx xval        ;Get X return value to X Register
+                ;Swap SP+4 and xval
+                ;so that xval is restored and the X return value
+                ;is at SP+4
+                ldy $104,x      ;Get original value of xval
+                lda xval        ;Get X return value
                 sty xval        ;Restore original value of xval
+                sta $104,x      ;Put X return value to SP+4
+                
+                ;SP+2 -> yval
+                ;yval -> y
+                ;Now, Y register holds the Y return value
+                ;yval is restored.
+                lda $102,x      ;Get original value of yval
+                ldy yval        ;Get Y return value to Y Register
+                sta yval        ;Restore original value of yval
+                
+                ;Current Stack:
+                ;
+                ;    SP ->
+                ;Offset +1: original aval
+                ;Offset +2: original yval (not needed anymore)
+                ;Offset +3: original lcstate                
+                ;offset +4: x return value            
                 
                 ;SP+1 -> aval
                 ;aval -> a
@@ -155,11 +161,31 @@ slxeq2:         phy
                 ply             ;pop the stack to get original value of aval
                 lda aval        ;Get A return value to A Register
                 sty aval        ;Restore original value of aval
+                plx             ;discard the original yval from stack
+
+                ;Current Stack:
+                ;
+                ;    SP ->
+                ;Offset +1: original lcstate                
+                ;offset +2: x return value     
+
+                ;Step 6 Restore Language Card and lcstate
+                ldx lcstate     ;Get Original LC state
+                jmp slxeq3    
+                ;continue in IOROM segment to restore LC setting
                 
-                ply             ;discard the dummy byte from stack
-                ply             ;Get Y return value
+                .segment "IOROM"
+                .reloc
+slxeq3:         inc $c000,x     ;Restore LC setting
+                plx             ;Restore lcstate location
+                stx lcstate     ;
+                
+                ;Finally, Get X return value
+                plx             ;Get X return value
                 jmp swrts       ;Switch Bank and return to the caller
+                                ;Don't use fswrts since LC setting is restored.
                 
+
                 
 ;---------------------------------------------------------------------------------
 ;When slxeq is called, the program flow will eventually reach
@@ -171,8 +197,7 @@ slxeq2:         phy
                 .segment HOMESEGMENT
                 .reloc
  
-dispatch:
-                ;Store a and x to aval, xval so handlers can get them
+dispatch:       ;Store a and x to aval, xval so handlers can get them
                 sta aval
                 stx xval
                 and #%00111111          ;A=mode, Mask out bit 7 and 6
