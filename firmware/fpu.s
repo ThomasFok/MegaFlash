@@ -322,9 +322,9 @@ fout_result:    ;
                 
                 ;Check if len is valid
                 ldy paramreg    ;Number of Chars (excluding the NULL char)
-                beq invalidlen  ;If y=0 or y>20, something's got wrong. Dont copy.
+                beq @end        ;If y=0 or y>20, something's got wrong. Dont copy to avoid corrupting stack
                 cpy #21         ;Output an empty string instead
-                bge invalidlen  ;            
+                bge @end        ;            
                 ;y = Number of Chars excluding the NULL char
                 
                 ;Copy the string excluding NULL characters
@@ -334,9 +334,9 @@ fout_result:    ;
                 inx
                 dey             ;y is loop counter
                 bne @loop
-                ;fall into invalidlen
+                ;fall into term_str
 
-invalidlen:     stz a:stack-1,x         ;NULL Terminate the string
+@end:           stz a:stack-1,x         ;NULL Terminate the string
                 lda #.LOBYTE(stack)     ;Original Implementation sets AY to stack              
                 ldy #.HIBYTE(stack)     ;before return                
                 jmp fswrts
