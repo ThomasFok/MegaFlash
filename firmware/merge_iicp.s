@@ -72,6 +72,9 @@
 	.segment "B0_FAC8"		;BootMenu Entry
 	.incbin "b0_fac8.bin"
         
+        .segment "B1_FFC8"              ;fswrts Code
+        .incbin "b1_ffc8.bin"
+        
         ;
         ;Applesoft
         ;        

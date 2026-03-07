@@ -102,6 +102,8 @@
                 ;From bootmenu.s
                 .import copybm
                 
+                ;From patch.s
+                .import fswrts
 
                 
 .ifdef IICP
@@ -276,7 +278,7 @@ nobootmenu:     ;exit here
 ;to start boot sequence or Boot Menu. This routine
 ;Reset stack pointer.
 ;Push the destination address-1 to stack. 
-;Jump to swrts to Switch bank, then use RTS instruction
+;Jump to fswrts to Switch bank, then use RTS instruction
 ;to jump to the destination
 ;
 ;swjmp_ay is the entry point without resetting SP
@@ -289,7 +291,7 @@ swjmp_ay_sp0:   ldx #$ff        ;Reset Stack Pointer
                 txs             ;
 swjmp_ay:       phy             ;Push High Byte
                 pha             ;Push Low Byte
-                jmp swrts       ;Switch bank, then RTS
+                jmp fswrts      ;Switch to main bank, then RTS
 
 ;----------------------------------------------------------
 ;A short delay (18 cycles) sub-routine.

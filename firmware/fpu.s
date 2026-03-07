@@ -16,6 +16,7 @@
                 ;
                 .import fpuenabled      ;From slotrom.s
                 .import swjmp_ay        ;From megaflash.s
+                .import fswrts          ;From patch.s
 
                 ;
                 ; Exports
@@ -148,7 +149,7 @@ fpu_exec2:      bit fpuenabled  ;Test if FPU is enabled
                 eor idreg       ;Acc = $ff if MegaFlash exists
                 inc a           ;Acc = $00 if MegaFlash exists 
                 beq usefpu      ;Branch if MegaFlash exists                
-userom:         jmp swrts       ;MegaFlash not exist or FPU Disabled
+userom:         jmp fswrts      ;MegaFlash not exist or FPU Disabled
                                 ;Return to main bank and then rts 
                                 ;to use ROM implementation
 
@@ -252,7 +253,7 @@ noerr:
                 sta fac+0
                 lda paramreg    ;Get FAC Extension
                 sta facext
-                jmp swrts       ;Done!
+                jmp fswrts      ;Done!
 .else
                 ldx #5          ;6 bytes
 :               lda paramreg    ;Get FAC
@@ -261,7 +262,7 @@ noerr:
                 bpl :-
                 lda paramreg    ;Get FAC Extension
                 sta facext
-                jmp swrts       ;Done!
+                jmp fswrts      ;Done!
 .endif
                 ;
                 ;Error Handlers
@@ -333,7 +334,7 @@ fout_result:    ;
 invalidlen:     stz a:stack-1,x         ;NULL Terminate the string
                 lda #.LOBYTE(stack)     ;Original Implementation sets AY to stack              
                 ldy #.HIBYTE(stack)     ;before return                
-                jmp swrts
+                jmp fswrts
 ;----------------------------------------------------     
 ;FADD
 ;

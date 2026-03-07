@@ -15,7 +15,12 @@
                 ; Imports
                 ;
                 
-;---------------------------------------------------- 
+                ;
+                ;Exports
+                ; 
+                .export fswrts
+                
+;----------------------------------------------------
 ; Cold Start Initialization
 ; We need to intercept the cold start routine (Power up or 
 ; Ctrl-OA-Reset) to initialize the driver and hardware.
@@ -38,9 +43,28 @@
                 lda #MODE_INIT  ;Run coldstartinit in aux bank
                 jmp slxeq       ;Jump to our routine, no return
 
+;-----------------------------------------------------
+; FSWRTS - Switch from Aux ROM Bank to Main Bank
+;
+; The SWRTS routine is to switch ROM Bank and then a RTS
+; instruction. The routine is at $C784, which is non-cacheable
+; on IIc plus/ZIP Chip.
+; 
+; There is a RTS instruction at $FFCB in bank 0. If we put
+; a ROM switch instruction right before it in bank 1, we can 
+; put a SWRTS routine in cacheable region.
+;
+;       Bank 1         Bank 0
+; FFC8: sta rombank
+; FFCB:                rts
+;
+                .segment "B1_FFC8";
+                .reloc
+fswrts:         sta rombank
+                ;rts at $FFCB in bank0
+                
                 
 .ifdef IICP     ;For Apple IIc Plus only
-
 ;-----------------------------------------------------
 ;Remove ROM Checksum test (Apple IIC+ only)
 ;
