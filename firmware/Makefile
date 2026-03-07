@@ -85,10 +85,8 @@ clean:
 	@# Intermediate Files
 	rm -f iicplus/*.o iicplus/*.lst iicplus/*.map iicplus/iicplus.txt
 	rm -f iic/*.o iic/*.lst iic/*.map iic/iic.txt
-	##rm -f applewin/*.o applewin/*.lst applewin/*.map applewin/applewin.txt
 	
 	@# Output Files
 	rm -f iic.bin
 	rm -f iicplus.bin
-	##rm -f applewin.bin
 
