@@ -222,6 +222,7 @@ usefpu:         ;
                 inx     ;2 Cycles
                 inx     ;2 Cycles
                 txs     ;2 Cycles
+                ;x=current SP
                 
                 ;Special Handling if command is CMD_FOUT
                 cpy #CMD_FOUT
@@ -309,7 +310,7 @@ fout_result:    ;
                 ; and adjust the stack pointer.
                 
                 ;Retrieve yval from stack to X and adjust the stack pointer
-                tsx
+                ;x already = current SP
                 lda a:$100-1,x          ;Get yval
                 tax                     ;Copy to X
                 pla                     ;Pop dummy value. To increase SP by 1
@@ -324,7 +325,7 @@ fout_result:    ;
                 beq invalidlen  ;If y=0 or y>20, something's got wrong. Dont copy.
                 cpy #21         ;Output an empty string instead
                 bge invalidlen  ;            
-                ;y = Number of Chars excluding the NULL char)
+                ;y = Number of Chars excluding the NULL char
                 
                 ;Copy the string excluding NULL characters
                 ;to address (stack-1)+yval                 
