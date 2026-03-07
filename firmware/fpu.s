@@ -334,7 +334,7 @@ fout_result:    ;
                 inx
                 dey             ;y is loop counter
                 bne @loop
-                ;fall into term_str
+                ;fall into @end
 
 @end:           stz a:stack-1,x         ;NULL Terminate the string
                 lda #.LOBYTE(stack)     ;Original Implementation sets AY to stack              
