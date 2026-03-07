@@ -121,6 +121,8 @@ void core0Loop() {
 }
 
 int main() {
+  OverclockCPU(); //must be done before initialization of other hardware
+                  //so that clock dividers of other hardware are set correctly.
   InitPIO();  
   InitSpi();
   InitFlash();
