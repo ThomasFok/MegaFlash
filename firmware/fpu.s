@@ -313,8 +313,9 @@ fout_result:    ;
                 lda a:$100-1,x          ;Get yval
                 tax                     ;Copy to X
                 pla                     ;Pop dummy value. To increase SP by 1
+                ;x = yval
                 
-                ;Wait until operation completes
+                ;Wait until Pico completes the operation
 :               bit statusreg
                 bmi :- 
                 
@@ -323,14 +324,17 @@ fout_result:    ;
                 beq invalidlen  ;If y=0 or y>20, something's got wrong. Dont copy.
                 cpy #21         ;Output an empty string instead
                 bge invalidlen  ;            
+                ;y = Number of Chars excluding the NULL char)
                 
-                ;Copy the string including NULL characters
+                ;Copy the string excluding NULL characters
                 ;to address (stack-1)+yval                 
-:               lda paramreg
+@loop:          lda paramreg
                 sta a:stack-1,x ;Force absolute adressing mode
                 inx
                 dey             ;y is loop counter
-                bne :-
+                bne @loop
+                ;fall into invalidlen
+
 invalidlen:     stz a:stack-1,x         ;NULL Terminate the string
                 lda #.LOBYTE(stack)     ;Original Implementation sets AY to stack              
                 ldy #.HIBYTE(stack)     ;before return                
