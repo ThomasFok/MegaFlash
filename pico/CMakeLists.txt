@@ -98,6 +98,9 @@ if (PICO_BOARD STREQUAL pico_w)
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE SYS_CLK_MHZ=150)
 endif()
 
+#Allow setting CYW43 PIO clock divisor
+target_compile_definitions(cyw43_driver_picow INTERFACE CYW43_PIO_CLOCK_DIV_DYNAMIC=1)
+
 
 #enable stdio 
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE PICO_STDIO_USB_CONNECT_WAIT_TIMEOUT_MS=3000)

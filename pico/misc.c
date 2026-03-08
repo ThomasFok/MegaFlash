@@ -1,5 +1,6 @@
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
+#include "pico/cyw43_driver.h"
 #include "hardware/timer.h"
 #include "hardware/sync.h"
 #include "hardware/adc.h"
@@ -307,6 +308,16 @@ void OverclockCPU() {
                   CLOCKS_CLK_PERI_CTRL_AUXSRC_VALUE_CLKSRC_PLL_SYS,
                   SYS_PLL_FREQ,      /* PLL_SYS frequency  */
                   SYS_PLL_FREQ/3);   /* required frequency */  
+                  
+  //Set CYW43 PIO clock divider to 3
+  //The default value is 2.
+  //clksys is overclocked by 1.5 times.
+  //So, new clock divider = 2*1.5 = 3
+  //This function only stores the divisor values to
+  //static variables. It does not change any hardware
+  //setting. The clock divider is set when cyw43 is
+  //initalized.
+  cyw43_set_pio_clkdiv_int_frac8(3, 0);        
 #endif
 }
 
