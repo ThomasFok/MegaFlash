@@ -121,8 +121,10 @@ void core0Loop() {
 }
 
 int main() {
+  #if 0 //CYW43 (WIFI) does not run reliably when overclock. 
   OverclockCPU(); //must be done before initialization of other hardware
                   //so that clock dividers of other hardware are set correctly.
+  #endif
   InitPIO();  
   InitSpi();
   InitFlash();
