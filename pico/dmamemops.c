@@ -225,6 +225,8 @@ void __no_inline_not_in_flash_func(ZeroMemoryAlignedBG)(uint8_t *dest,const uint
 //
 // Output: CRC16
 //
+//CRC16() and CRC16Aligned() generate the same result if
+//the data are the same.
 uint32_t CRC16(const uint8_t *src,const uint32_t len) {
   assert(!dma_channel_is_busy(channel));    
   uint32_t dest[1];   //dummy dest
@@ -287,6 +289,9 @@ uint32_t CRC16Aligned(const uint8_t *src,const uint32_t len) {
 // Speed: 3us for 128 Bytes. 
 //        4us for 512 Bytes. 
 //        35us for 4096 Bytes
+//
+//CRC32() and CRC32Aligned() generate the same result if
+//the data are the same.
 uint32_t CRC32(const uint8_t *src,const uint32_t len) {
   assert(!dma_channel_is_busy(channel));    
   uint32_t dest[1];   //dummy dest
