@@ -7,6 +7,7 @@
 #include "hardware/watchdog.h"
 #include "hardware/spi.h"
 #include "hardware/clocks.h"
+#include "hardware/vreg.h"
 #include <malloc.h>
 #include <string.h>
 #include <ctype.h>
@@ -284,6 +285,10 @@ void OverclockCPU() {
   const uint32_t POSTDIV1 = 3;
   const uint32_t POSTDIV2 = 1;
   const uint32_t SYS_PLL_FREQ = VCO/(POSTDIV1*POSTDIV2);
+  
+  //Increase core voltage to 1.15V to improve stability
+  //Default is 1.10V
+  vreg_set_voltage(VREG_VOLTAGE_1_15);  
   
   //Run system clock from usb_pll temporarily while changing sys_pll frequency
   clock_configure(clk_sys,
