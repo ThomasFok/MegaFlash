@@ -321,7 +321,7 @@ void OverclockCPU() {
   //This function only stores the divisor values to
   //static variables. It does not change any hardware
   //setting. The clock divider is set when cyw43 is
-  //initalized.
+  //initialized.
   cyw43_set_pio_clkdiv_int_frac8(3, 0);        
 #endif
 }

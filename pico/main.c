@@ -195,7 +195,7 @@ int main() {
   SaveConfigs();
 
   //
-  //Print Debug Infomation to serial port
+  //Print Debug Information to serial port
   //
   DEBUG_PRINTF("\nMegaFlash DEBUG Firmware Version %d\n",FIRMWAREVER);
   DEBUG_PRINTF("sys_pll   = %dMHz\n",frequency_count_khz(CLOCKS_FC0_SRC_VALUE_PLL_SYS_CLKSRC_PRIMARY)/1000);
