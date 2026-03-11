@@ -1,12 +1,13 @@
-Version 1.1.8
+Version 1.1.8 11-Mar-2026
 Pico Firmware
 - FSUB Applesoft BASIC FPU command is added
-- Optimize Applesoft FPU routines
-- Remove IRQ0 from RP2350 PIO program
+- Optimized Applesoft FPU routines
+- Removed IRQ0 from RP2350 PIO program
+- Overclocked RP2350 CPU to 225MHz
 
 Apple Firmware (V1.0.1)
-- Optimize disk access speed
-- Optimize FPU speed
+- Optimized disk access speed
+- Optimized FPU speed
 
 Version 1.1.7 20-Sep-2025
 Pico Firmware
