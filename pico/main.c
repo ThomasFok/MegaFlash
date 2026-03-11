@@ -121,7 +121,7 @@ void core0Loop() {
 }
 
 int main() {
-  #if 0 //CYW43 (WIFI) does not run reliably when overclock. 
+  #if OC_RP2350
   OverclockCPU(); //must be done before initialization of other hardware
                   //so that clock dividers of other hardware are set correctly.
   #endif
