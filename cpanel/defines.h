@@ -92,5 +92,6 @@ enum ERROR {
 
 //Function Prototypes
 void FatalError(uint8_t errorcode);
+void Reboot();
 
 #endif

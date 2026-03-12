@@ -12,7 +12,7 @@
                 .importzp ptr1,ptr2,ptr3,ptr4
                 .import popa
 
-                .export _Reboot,_IsAppleIIcplus
+                .export _ResetCPU,_IsAppleIIcplus
                 .export _ToUppercase,_ZeroMemory
                 .export _HasFPUSupport,_ReadOpenAppleButton,_Delay
 
@@ -23,10 +23,10 @@
 appleii         :=      $FB60   ;Clear screen and show Apple IIc
         
 ;/////////////////////////////////////////////////////////
-; void __fastcall__ Reboot()
-; Reboot the machine immediately
+; void __fastcall__ ResetCPU()
+; Soft Reset the machine immediately
 ;
-_Reboot:        bit $c082       ;Switch in ROM
+_ResetCPU:      bit $c082       ;Switch in ROM
                 jsr appleii     ;Show Apple II on screen to give immediate feedback to user
                 sta $3f3        ;Destory the PWRUP bytes
                 sta $3f4        ;
@@ -45,9 +45,9 @@ _IsAppleIIcplus:
                 lda $fbbf       ;$fbbf = 05 for IIc+
                 bit $c080       ;Restore to LC bank 2
                 cmp #$05
-                beq :+          ;If equal, return a=5, x=0
+                beq @iicplus    ;If equal, return a=5, x=0
                 txa             ;else return a=0, x=0
-:               rts     
+@iicplus:       rts     
 
 
 ;/////////////////////////////////////////////////////////
@@ -75,7 +75,7 @@ _ToUppercase:
 ;/////////////////////////////////////////////////////////
 ; void __fastcall__ ZeroMemory(uint8_t len,void* dest)
 ; Clear memory region to zero.
-; Length is limited to 256 bytes only
+; Length is limited to 255 bytes only
 ;
 ; Input: len  - number of bytes
 ;        dest - pointer to destination
@@ -113,9 +113,9 @@ _HasFPUSupport:
                 txa             ;
                 ldy $C7FF
                 cpy #FPU_SUPPORT_SIGNATURE
-                bne :+
+                bne @nofpu
                 inc a           ;X=0, A=1 (true)        
-:               rts
+@nofpu:         rts
 .else
                 ldx #0
                 lda #1
@@ -130,36 +130,20 @@ _HasFPUSupport:
 ; Output: bool - status of Open Apple key
 ;
 _ReadOpenAppleButton:
-                lda #0          ;a=0, x=0 (false)
+                lda #0          ;Preload a=0, x=0 (false)
                 tax 
                 bit $C061       ;Joystick Button 0
-                bpl :+
+                bpl @oa_off
                 inc a           ;a=1, x=0 (true)
-:               rts
+@oa_off:        rts
 
 ;/////////////////////////////////////////////////////////     
 ; void __fastcall__ Delay(uint8_t n)
-; To call the system wait routine. On IIc Plus, we prefer
-; our orgWait routine at $C755. First, check if orgWait
-; routine exists. If not, fall-back to system wait routine
-; at $FCA8
+; To call the system wait routine. 
 ;
 ; Input: n - delay duration of wait routine
 ;
 _Delay:
-.if 0
-                ;Check if orgWait exists
-                ;Check: $C755=$38 and $C760=$60
-                ldy $c755
-                cpy #$38
-                bne @notexist
-                ldy $c760
-                cpy #$60
-                bne @notexist
-                jmp $c755       ;orgWait routine
-                
-@notexist:                
-.endif
                 bit $c082       ;Switch in ROM
                 jsr $fca8       ;Monitor Wait routine
                 bit $c080       ;Restore to LC bank 2

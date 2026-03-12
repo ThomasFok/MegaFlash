@@ -7,6 +7,6 @@
 void InitConfig();
 bool ValidateConfig(UserSettings_t* config);
 void LoadConfig();
-void SaveUserSettingsReboot();
+void SaveConfigReboot();
 
 #endif

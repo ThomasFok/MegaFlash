@@ -19,6 +19,45 @@ static uint8_t key;
 
 /////////////////////////////////////////////////////////////
 //
+// Save before Exit Dialog
+//
+/////////////////////////////////////////////////////////////
+#define SE_XPOS 9
+#define SE_YPOS 9
+#define SE_WIDTH 22
+#define SE_HEIGHT 7
+const char* strSaveBeforeExitTitle = "Exit";
+static void DrawSaveBeforeExitWindow() {
+  wnd_DrawWindow(SE_XPOS,SE_YPOS,SE_WIDTH,SE_HEIGHT,strSaveBeforeExitTitle,true,true);
+}
+
+const char* exitMenuItem[] = {
+  "Save and Reboot",
+  "Don't Save",
+  "Cancel"  
+};
+
+//////////////////////////////////////////////////////////
+// Ask user to save before exit
+// return 1  if user selected Save
+// return 0  if user selected Don't Save
+// return -1 if user selected Cancel
+int8_t ShowSaveBeforeExitDialog() {
+  DrawSaveBeforeExitWindow();
+  cputs("Save changes?");
+  
+  mnu_currentMenuItem=0;  //Default is Yes  
+  do {
+    key=DoMenu(exitMenuItem,3,2,2);
+    if (key==KEY_ESC) return -1;  //cancel
+  }while (key!=KEY_ENTER);  
+  
+  return 1-mnu_currentMenuItem;
+}
+
+#if 0
+/////////////////////////////////////////////////////////////
+//
 // Save Confirmation Dialog
 //
 /////////////////////////////////////////////////////////////
@@ -29,8 +68,10 @@ static uint8_t key;
 static void DrawSaveConfirmWindow() {
   wnd_DrawWindow(SC_XPOS,SC_YPOS,SC_WIDTH,SC_HEIGHT,strConfirm,true,true);
 }
+
+
 /////////////////////////////////////////////
-// Confirm to save the setting and rebot
+// Confirm to save the setting and reboot
 // Return true if user select Yes
 //
 bool ShowSaveConfirmDialog() {
@@ -53,7 +94,7 @@ bool ShowSaveConfirmDialog() {
   //Inverting bit 0 is equivalent to mnu_currentMenuItem==0
   return mnu_currentMenuItem^0x01;
 }
-
+#endif
 
 
 /////////////////////////////////////////////////////////////
@@ -99,6 +140,7 @@ void ShowEraseSettingsDialog() {
 }
 
 
+#if 0
 /////////////////////////////////////////////////////////////
 //
 // PicoW Needed Dialog
@@ -111,4 +153,5 @@ void ShowPicoWNeededDialog() {
   cputs(strOKAnyKey);
   cgetc();
 }
+#endif
 

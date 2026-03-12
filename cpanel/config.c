@@ -54,9 +54,9 @@ void LoadConfig() {
 
 
 /////////////////////////////////////////////////////////////////////
-// Save User Settings to MegaFlash and then Reboot
+// Save User Config to MegaFlash and then reboot
 //
-void SaveUserSettingsReboot() {
+void SaveConfigReboot() {
   static_local bool success;
   
   //Check version, checkbyte and zoneverid
@@ -71,7 +71,6 @@ void SaveUserSettingsReboot() {
   if (!success) {
     FatalError(ERR_SAVECONFIGREBOOT_FAIL);
   }
-
-  ResetScreen();
+  
   Reboot();
 }

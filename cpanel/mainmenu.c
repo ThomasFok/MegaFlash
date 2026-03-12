@@ -26,16 +26,17 @@
 extern UserSettings_t config;
 extern bool isAppleIIcplus;
 extern bool isWifiSupported;
+extern bool isFPUSupported;
+extern bool clean;
 
 //
 // Constants
 //
 static const char strChecked[]    ="(\304)";
 static const char strNotChecked[] ="( )";
-static const char strNA []="n/a";
 
 static char mmTitle[] = "MegaFlash Control Panel";
-static char mmPrompt[] ="Cancel:esc   Select:\310 \325 \312 \313 \315";
+static char mmPrompt[] ="Exit:esc     Select:\310 \325 \312 \313 \315";
 
 enum COMMANDS {
   ID_POWERONSPEED,
@@ -96,12 +97,6 @@ static uint8_t mainMenuItemCount = MMITEMCOUNT;
 #define MENU_XPOS 0
 #define MENU_YPOS 0
 
-
-static void ShowNA() {
-  gotox(27);
-  cputs(strNA);
-}
-
 static void ShowCPUSpeed() {
   gotox(24);
   if (config.configbyte1 & CPUSPEEDFLAG) cputs("Normal");
@@ -109,6 +104,7 @@ static void ShowCPUSpeed() {
 }
 
 static void ToggleCPUSpeed() {
+  clean = false;
   config.configbyte1 = config.configbyte1 ^ CPUSPEEDFLAG;
   ShowCPUSpeed();
 }
@@ -119,53 +115,40 @@ static void ShowAutoBoot() {
   else cputs(strNotChecked);
 }
 
-static void ToggleAutoBoot() {
+static void ToggleAutoBoot() {  
+  clean = false;
   config.configbyte1 = config.configbyte1 ^ AUTOBOOTFLAG;
   ShowAutoBoot();
 }
 
 static void ShowFPU() {
   gotox(27);
-  if (HasFPUSupport()) {
-    if (config.configbyte1 & FPUFLAG) cputs(strChecked);
-    else cputs(strNotChecked);   
-  } else {
-    cputs(strNA);
-  }
+  if (config.configbyte1 & FPUFLAG) cputs(strChecked);
+  else cputs(strNotChecked); 
 }
 
 static void ToggleFPU() {
-  if (HasFPUSupport()) {
-    config.configbyte1 = config.configbyte1 ^ FPUFLAG;
-    ShowFPU();
-  }
+  clean = false;    
+  config.configbyte1 = config.configbyte1 ^ FPUFLAG;
+  ShowFPU();
 }
 
 static void ShowNTPClient() {
   gotox(27);
-
-  if (!isWifiSupported) {
-    ShowNA();
-  } else {
-    if (config.configbyte1 & NTPCLIENTFLAG) cputs(strChecked);
-    else cputs(strNotChecked);  
-  }
+  if (config.configbyte1 & NTPCLIENTFLAG) cputs(strChecked);
+  else cputs(strNotChecked);  
 }  
   
 static void ToggleNTPClient() {
-  if (!isWifiSupported) return;  
-  
+  clean = false;  
   config.configbyte1 = config.configbyte1 ^ NTPCLIENTFLAG;
   ShowNTPClient();  
 }
   
 static void ToggleTimezone(uint8_t key) {
   gotox(21);
-  if (!isWifiSupported) {
-    ShowNA();
-  } else {
-    DoToggleTimezone(key);  
-  }
+  if (key!=0) clean = false;
+  DoToggleTimezone(key);  
 }
 
 static void ShowTimezone() {
@@ -178,8 +161,10 @@ static void ShowAllOptions() {
   if (isAppleIIcplus) {
     ShowCPUSpeed(); cursordown();
   }
-  ShowAutoBoot();  cursordown();
-  ShowFPU();       cursordown();
+  ShowAutoBoot(); cursordown();
+  if (isFPUSupported) {
+    ShowFPU(); cursordown();
+  }
   if (isWifiSupported) {
     ShowNTPClient(); cursordown();
     ShowTimezone();
@@ -214,6 +199,7 @@ void DoMainMenu() {
   static_local bool redrawAll = true;
   static_local uint8_t key; 
   static_local uint8_t selectedItem;
+  static_local int8_t reply;
 
   //
   //Remove unwanted menu items. 
@@ -225,6 +211,9 @@ void DoMainMenu() {
     RemoveMenuItem(ID_WIFISETTINGS);
     RemoveMenuItem(ID_TIMEZONE);
     RemoveMenuItem(ID_NTPCLIENT);
+  }
+  if (!isFPUSupported) {
+    RemoveMenuItem(ID_FPU);
   }
   if (!isAppleIIcplus) {
     RemoveMenuItem(ID_POWERONSPEED);
@@ -248,7 +237,27 @@ void DoMainMenu() {
       mnu_currentMenuItem = selectedItem;
 
       key=DoMenu((const char**)mainMenuItems,mainMenuItemCount,MENU_XPOS,MENU_YPOS);
-      if (key==KEY_ESC) return;
+      
+      //Escape Key
+      //Exit directly if no settings are changed.
+      //Otherwise, Ask user to save the settings
+      if (key==KEY_ESC) {
+        if (clean) return;  //Exit to boot menu if no setting is changed
+        
+        //Ask user to save
+        DrawMainMenuWindowFrame(false);  //Deactivate Main Menu Window     
+        reply=ShowSaveBeforeExitDialog();
+        if (reply<0) { //-1:Cancel Exit
+          redrawAll = true;    
+          continue;        
+        }
+        else if (reply==0){ //0:Don't Save
+          return;   //Exit Control Panel and return to boot menu
+        } 
+        else{ //+1:Save
+          SaveConfigReboot();   //No return. Reboot after saving
+        }
+      }
 
       //Save current Item since mnu_currentMenuItem may be changed by
       //command handler such as ShowEraseSettingsDialog()
@@ -276,52 +285,48 @@ void DoMainMenu() {
           break;
         case ID_DRIVESENABLE:
           if (key!=KEY_ENTER) break;     
-          DrawMainMenuWindowFrame(false);  //Inactivate Main Menu Window 
+          DrawMainMenuWindowFrame(false);  //Deactivate Main Menu Window 
           redrawAll = true;
           DoDrivesEnable();
           break;          
         case ID_WIFISETTINGS:
           if (key!=KEY_ENTER) break;
-          DrawMainMenuWindowFrame(false);  //Inactivate Main Menu Window 
+          DrawMainMenuWindowFrame(false);  //Deactivate Main Menu Window 
           redrawAll = true;        
-          if (isWifiSupported) DoWifiSetting();
-          else ShowPicoWNeededDialog();
+          DoWifiSetting();
           break;
         case ID_TESTWIFI:
           //The Test window covers the main menu window completely.
-          //No need to Inactivate main menu window 
+          //No need to Deactivate main menu window 
           if (key!=KEY_ENTER) break;          
-          DrawMainMenuWindowFrame(false);  //Inactivate Main Menu Window                    
+          DrawMainMenuWindowFrame(false);  //Deactivate Main Menu Window                    
           redrawAll = true;    
-          if (isWifiSupported) DoTestWifi();
-          else ShowPicoWNeededDialog();
+          DoTestWifi();
           break;
         case ID_TFTP:  
           if (key!=KEY_ENTER) break;             
-          DrawMainMenuWindowFrame(false);  //Inactivate Main Menu Window 
+          DrawMainMenuWindowFrame(false);  //Deactivate Main Menu Window 
           DoTFTPImageTransfer();
           redrawAll = true;   
           break;
         case ID_FORMAT:
-          //Format Megaflash Drive
           if (key!=KEY_ENTER) break;       
-          DrawMainMenuWindowFrame(false);  //Inactivate Main Menu Window           
+          DrawMainMenuWindowFrame(false);  //Deactivate Main Menu Window           
           redrawAll = true;       
           DoFormat();
           break;
         case ID_ERASESETTINGS:
           if (key!=KEY_ENTER) break;     
-          DrawMainMenuWindowFrame(false);  //Inactivate Main Menu Window 
+          DrawMainMenuWindowFrame(false);  //Deactivate Main Menu Window 
           redrawAll = true;
           ShowEraseSettingsDialog();
           break;
         case ID_SAVEANDREBOOT:
           if (key!=KEY_ENTER) break;          
-          DrawMainMenuWindowFrame(false);  //Inactivate Main Menu Window 
-          redrawAll = true;
-          if (ShowSaveConfirmDialog()) {
-           SaveUserSettingsReboot(); //No return. Reboot after saving
-          } 
+          
+          if (clean) Reboot();    //No return.
+          SaveConfigReboot();     //No return. Save then reboot      
+                                  //Save 5 bytes if 'else' is omitted.
           break;
      }  
     }while(redrawAll==false);

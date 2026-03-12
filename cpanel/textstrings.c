@@ -3,8 +3,6 @@
 
 const char strConfirm[] = "Confirm";
 const char strError[] = "Error";
-//const char strYes[] = "Yes";
-//const char strNo[] = "No";
 const char strOKAnyKey[]="OK:Any Key";
 const char strAborted[] = "Aborted.";
 const char strResult[] = "Result:";

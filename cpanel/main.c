@@ -34,7 +34,18 @@ IIc+. It also support Slinky and serial port emulation.
 UserSettings_t config;
 bool isAppleIIcplus;
 bool isWifiSupported;
+bool isFPUSupported;
 uint8_t boardType;
+bool clean;   //set to false if any setting is changed. Ask user to save when Esc key is pressed.
+
+
+/////////////////////////////////////////////////////////////////////
+// Reboot the machine
+//
+void Reboot() {
+  ResetScreen();  //Reduce screen flickering
+  ResetCPU();     //Reboot the machine
+}
 
 
 /////////////////////////////////////////////////////////////////////
@@ -99,6 +110,8 @@ void main() {
 #endif  
   
   isAppleIIcplus = IsAppleIIcplus();
+  isFPUSupported = HasFPUSupport();
+  clean = true;
   LoadConfig();
   DoMainMenu();
 	

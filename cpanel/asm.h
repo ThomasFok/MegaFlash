@@ -53,7 +53,7 @@ void __fastcall__ setvid();
 //
 // asm.s
 //
-void __fastcall__ Reboot();
+void __fastcall__ ResetCPU();
 uint8_t __fastcall__ IsAppleIIcplus();
 void __fastcall__ ToUppercase(char* s);
 void __fastcall__ ZeroMemory(uint8_t len,void* dest);

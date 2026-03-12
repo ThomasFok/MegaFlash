@@ -164,7 +164,7 @@ again:
   if (!ti_EnterText(WPAKEYLEN,0,9,PASSPHRASEWIDTH)) return;     //Esc key pressed
   strcpy(setting.wpakey,ti_textBuffer);
   
-  //Inactivate WIFI window  
+  //Deactivate WIFI window  
   DrawWifiWindowFrame('2',false,false); 
   
   //

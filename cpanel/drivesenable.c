@@ -18,8 +18,7 @@
 // Defined in main.c
 //
 extern UserSettings_t config;
-
-
+extern bool clean;
 
 // Position and size of window
 #define XPOS 1
@@ -29,7 +28,7 @@ extern UserSettings_t config;
 
 //
 //static Global Variables 
-static bool enableFlags[9];  //Enable Flag of each drive
+static bool enableFlags[9]; //Enable Flag of each drive
 static bool ramdiskEnableFlag;
 static uint8_t i;           //Loop counter and array index
 
@@ -92,7 +91,9 @@ void DoDrivesEnable() {
   static_local uint8_t unitCount;
   static_local unsigned char key;
   static_local bool newFlag;
+  static_local bool dirty; //=true if user has pressed any number keys to toggle any drives
   
+  dirty = false;
   unitCount = GetUnitCount();
   UnpackFlags();
   
@@ -122,6 +123,7 @@ void DoDrivesEnable() {
       //Toggle ramdiskEnableFlag;
       ramdiskEnableFlag = !ramdiskEnableFlag;
       PrintCheckbox(unitCount,ramdiskEnableFlag);
+      dirty = true;
       continue;
     }
     
@@ -130,13 +132,16 @@ void DoDrivesEnable() {
       newFlag = !enableFlags[i];
       enableFlags[i] = newFlag;
       PrintCheckbox(i, newFlag);
+      dirty = true;
       continue;
     }
     
     //Enter Key
     if (key==KEY_ENTER) {
-      //Pack the flags and save to config variable
-      PackFlags();
+      if (dirty) {
+        clean = false;
+        PackFlags();  //Pack the flags and save to config variable   
+      }
       break;    //exit the loop
     }
   }while (key != KEY_ESC);
