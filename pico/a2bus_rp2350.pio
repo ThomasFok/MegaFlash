@@ -102,7 +102,7 @@ read_cycle:
                          ;goes LOW at the same time.
                          ;So, it should work without this instruction.
                          ;The only explanation I can think of is that
-                         ;nDEVSEL goes low in the middle of a cycle.
+                         ;nDEVSEL goes high in the middle of a cycle.
                          ;So, the prgram wraps to the beginning before
                          ;the end of current cycle.
                          ;But how can this happen??
