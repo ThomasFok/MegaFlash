@@ -12,13 +12,11 @@
 
 
 
-
-
 #define TIMEOUT_NEVER at_the_end_of_time
 enum {
   DNSERR_TIMEOUT     = -1,
-  DNSERR_NONE     = 0,
-  DNSERR_INVALIDHOST = 1
+  DNSERR_NONE        =  0,
+  DNSERR_INVALIDHOST =  1
 };
 
 
@@ -90,7 +88,6 @@ class CUDPTask {
     void SendUDP(const uint8_t *payload,const uint16_t len, const uint16_t port);
     struct udp_pcb *pcb;
     //To receive result from UDP Callback
-    bool udpCallbackInvoked;    
     uint8_t *rxbuffer;
     uint16_t rxdatalen;
     ip_addr_t rxremoteipaddr;

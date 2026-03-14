@@ -18,7 +18,7 @@ void udp_callback(void *arg, struct udp_pcb *pcb, struct pbuf *pub, const ip_add
 static int wifi_connect_timeout_ms(const char *ssid, const char *pw, uint32_t auth, uint32_t timeout_ms) {
   absolute_time_t timeout = make_timeout_time_ms(timeout_ms);
 
-  int err = cyw43_arch_wifi_connect_bssid_async(ssid, NULL, pw, auth);
+  int err = cyw43_arch_wifi_connect_bssid_async(ssid, nullptr, pw, auth);
   if (err) return err;
 
   int status = CYW43_LINK_UP + 1;
@@ -56,7 +56,7 @@ static int wifi_connect_timeout_ms(const char *ssid, const char *pw, uint32_t au
 // Init static members
 volatile bool CUDPTask::isRunning = false;
 volatile bool CUDPTask::abortRequested = false;
-CUDPTask *CUDPTask::runningObject = NULL;
+CUDPTask *CUDPTask::runningObject = nullptr;
 
 ///////////////////////////////////////////////////////////////////
 // Constructor
@@ -68,9 +68,8 @@ CUDPTask::CUDPTask() {
   dnsTimeout   = TIMEOUT_NEVER;
   timerTimeout = TIMEOUT_NEVER;
   timerArg = 0;
-  pcb = NULL;
+  pcb = nullptr;
   completed = false;
-  udpCallbackInvoked=false;
   rxbuffer = new uint8_t[UDP_BUFFERSIZE];
   rxdatalen = 0;
   rxremoteipaddr=IPADDR4_INIT(0);
@@ -86,8 +85,8 @@ CUDPTask::CUDPTask() {
 CUDPTask::~CUDPTask() {
   cyw43_arch_lwip_begin();  
   if (this->pcb) udp_remove(this->pcb);
-  if (rxbuffer) delete[] rxbuffer;
   cyw43_arch_lwip_end();   
+  delete[] rxbuffer;
   
   if (hasInitedCyw43) {
     //Disconnect WIFI
@@ -159,14 +158,7 @@ void CUDPTask::Run(const char* ssid, const char* wpakey) {
       if (time_reached(dnsTimeout)) {
         dnsTimeout = TIMEOUT_NEVER;
         WatchdogUpdate();      
-        this->EvtDNSResult(DNSERR_TIMEOUT, NULL);
-      }
-      
-      //UDP Callback
-      if (udpCallbackInvoked) {
-        udpCallbackInvoked = false;
-        WatchdogUpdate();      
-        EvtUDPReceived(rxbuffer,rxdatalen,rxremoteipaddr,rxremoteport);
+        this->EvtDNSResult(DNSERR_TIMEOUT, nullptr);
       }
       
       //Timer Timeout
@@ -189,6 +181,10 @@ void CUDPTask::Run(const char* ssid, const char* wpakey) {
         throw CUDPTask::ERR_WATCHDOG;
       }
       
+      //Note:
+      //EvtUDPReceived() is called by udp_callback() directly.      
+      //No need to handle the event here.
+      
       //Abort Request
       if (CUDPTask::abortRequested) CUDPTask::Abort(this);
       
@@ -199,12 +195,12 @@ void CUDPTask::Run(const char* ssid, const char* wpakey) {
 
     DEBUG_PRINTF("Event Loop completed normally\n");
     CUDPTask::isRunning = false;
-    CUDPTask::runningObject = NULL;        
+    CUDPTask::runningObject = nullptr;        
     
   }catch(...) {
-    //Make sure isRunning and runningObject is set to false and NULL if any exception occurs
+    //Make sure isRunning and runningObject is set to false and nullptr if any exception occurs
     CUDPTask::isRunning = false;
-    CUDPTask::runningObject = NULL;    
+    CUDPTask::runningObject = nullptr;    
     throw; 
   }
 }
@@ -445,30 +441,35 @@ void CUDPTask::SendUDP(const uint8_t *payload,const uint16_t payloadlen, const u
 //
 // UDP Payload is copied to rxbuffer
 // remote IP address and port is copied to rxremoteipaddr and rxremoteport
-// udpCallbackInvoked is set to true
+// EvtUDPReceived() is called.
 //
 void udp_callback(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf, const ip_addr_t *remote_addr, u16_t remote_port) {
   TRACE_PRINTF("udp_callback invoked\n");
   CUDPTask* pTask = (CUDPTask*) arg;  
   
+  //Don't proceed if pbuf is null
+  if (pbuf==nullptr) return;
+  
   //make sure the callback is for this object
   //see note at dns_callback()
-  if (CUDPTask::GetRunningObject()==pTask && pTask!=NULL) {
+  if (pTask!=nullptr && CUDPTask::GetRunningObject()==pTask) {
     if (pbuf->tot_len <= UDP_BUFFERSIZE) {
       //Copy recevied data to CUDPTask object
-      pTask->udpCallbackInvoked=true;
+      //and call its EvtUDPReceived() handler
       pTask->rxdatalen = pbuf->tot_len;
       pbuf_copy_partial(pbuf,pTask->rxbuffer,pbuf->tot_len,0);
       pTask->rxremoteipaddr=*remote_addr;
       pTask->rxremoteport=remote_port;
+      pTask->WatchdogUpdate();      
+      pTask->EvtUDPReceived(pTask->rxbuffer,pTask->rxdatalen,pTask->rxremoteipaddr,pTask->rxremoteport);
     } else {
-      assert(0);
+      ERROR_PRINTF("ERROR: udp_callback() pbuf->tot_len > UDP_BUFFERSIZE\n");
     }
   } else {
     WARN_PRINTF("udp_callback() arg NOT POINTING to current UDPTask object. Ignore it!\n");
   }
-  
-  if (pbuf) pbuf_free(pbuf);
+
+  pbuf_free(pbuf);
 }
 
 
