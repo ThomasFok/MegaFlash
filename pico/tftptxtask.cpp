@@ -358,12 +358,14 @@ void CTFTPTXTask::ProcessACKPacket(const uint8_t* payload,uint16_t payloadlen,ui
     //block number is not expected one.
     if (block==current_tftpBlock-1) {
       //If Ack of last Data Packet is received, it means the Data Block
-      //is lost. Retry without any delay
-      //Otherwise, Discard the packet.
-      this->Retry();
+      //is lost. 
+      //Don't call Retry() immediately. It may cause a race condition
+      //with server and causes a series of retransmission.
+      //Do nothing and let the timeout handler to resend the packet. 
+      INFO_PRINTF("Discard Packet: Last Data Packet Lost\n");
       return;
     } else {
-      TRACE_PRINTF("Discard Packet: Invalid Block Number\n");
+      INFO_PRINTF("Discard Packet: Invalid Block Number\n");
       return;
     }
   }
