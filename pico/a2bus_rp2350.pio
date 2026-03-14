@@ -108,11 +108,10 @@ read_cycle:
                          ;But how can this happen??
 
   ; Wait until nDEVSEL_GPIO is inactive
-  ; When the Apple II side is un-powered, both nDEVSEL and PHI0 is low
-  ; even the built-in pull-up resistors are enabled.
-  ; So, an access to us is continuously triggered.
-  ; Adding this instruction prevents that.
-  wait 1 gpio nDEVSEL_GPIO
+  wait 1 gpio nDEVSEL_GPIO [7]
+  ;Delay awhile before wrapping to the begining
+  ;In case there is bouncing or glitch at nDEVSEL, 
+	;the cycle will not be false triggered.
 
 .wrap
 
@@ -156,7 +155,7 @@ byte_select:                    ;Max loop 4 times
 cycle_end:
   wait 0 gpio PHI0_GPIO         ;wait until PHI0 goes low
   mov pindirs, null  side 1     ;Switch pindirs to input
-  wait 1 gpio nDEVSEL_GPIO      ;See note above
+  wait 1 gpio nDEVSEL_GPIO [7]  ;See note above
 .wrap
 
 

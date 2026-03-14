@@ -121,11 +121,11 @@ cycle_end:
   out pindirs, 8 side 1 ; Switch pindirs to input  
   
   ; Wait until nDEVSEL_GPIO is inactive
-  ; When the Apple II side is un-powered, both nDEVSEL and PHI0 is low
-  ; even the built-in pull-up resistors are enabled.
-  ; So, an access to us is continuously triggered.
-  ; Adding this instruction prevents that.
-  wait 1 gpio nDEVSEL_GPIO
+  wait 1 gpio nDEVSEL_GPIO [7]
+  ;Delay awhile before wrapping to the begining
+  ;In case there is bouncing or glitch at nDEVSEL, 
+	;the cycle will not be false triggered.
+	
 .wrap
 
 
