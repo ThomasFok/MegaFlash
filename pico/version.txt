@@ -1,6 +1,7 @@
 Version 1.1.9
 Pico Firmware
-- Fix: NTP is updated twice when the machine is powered on
+- Control Panel: Ask users to save setting when Esc key is pressed.
+- Fix: NTP is executed twice when the machine is powered on
 
 Apple Firmware
 - No changes (V1.0.1)
