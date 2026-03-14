@@ -92,11 +92,12 @@ void core0Loop() {
   
   if (CheckPicoW()) {
     do {
-      updateNTPNow = false;
       int err = GetNetworkTime(); //Get current time from NTP Server
-      DEBUG_PRINTF("GetNTP err=%d (%d=NETERR_NONE)\n",err,NETERR_NONE);
+      DEBUG_PRINTF("GetNTP err=%d (%d=NETERR_NONE)\n",err,NETERR_NONE);      
       if (err==NETERR_NONE) nextUpdateTime = make_timeout_time_ms(NEXTUPDATE_SUCCESS);
       else nextUpdateTime = make_timeout_time_ms(NEXTUPDATE_FAILED);
+      updateNTPNow = false; //Reset updateNTPNow after GetNetworkTime() so that the update request is ignored if 
+                            //updateNTPNow is set to true during the execution of GetNetworkTime()      
 
         //wait until nextUpdateTime or msg from other core
         do {

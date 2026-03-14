@@ -1,3 +1,10 @@
+Version 1.1.9
+Pico Firmware
+- Fix: NTP is updated twice when the machine is powered on
+
+Apple Firmware
+- No changes (V1.0.1)
+
 Version 1.1.8 11-Mar-2026
 Pico Firmware
 - FSUB Applesoft BASIC FPU command is added
