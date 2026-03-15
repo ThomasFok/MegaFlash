@@ -77,7 +77,7 @@ static void DrawTFTPWindowFramePage(char page) {
 //
 // Page 1 Text Strings
 //
-static char page1Prompt[] = "ProDOS ordered Disk Image (.po or\n\r.hdv) can be transferred between\n\rTFTP Server and MegaFlash via WIFI.\n\rFor downloading, the disk image is\n\rwritten to MegaFlash directly.\n\n\rPlease select:";
+static char page1Prompt[] = "Supported Disk Image Formats\n\n\rDownload: ProDOS Order (.po/.hdv)\n\r          DOS Order    (.do/.dsk)\n\r  Upload: ProDOS Order (.po/.hdv)\n\n\rPlease select:";
 static char selectPrompt[] ="Cancel:esc            Select: \312 \313 \315";
 static const char* tftpMenuItems[] = {
   "Download from TFTP server",
