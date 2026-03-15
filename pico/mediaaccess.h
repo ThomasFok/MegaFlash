@@ -16,7 +16,7 @@ void GetDIB(const uint unitNum,uint8_t *destBuffer);
 int GetMediumType(const uint unitNum);
 uint ReadBlock(const uint unitNum, const uint blockNum, uint8_t* destBuffer,uint8_t* spErrorOut);
 uint WriteBlock(const uint unitNum, const uint blockNum, uint8_t* srcBuffer,uint8_t* spErrorOut);
-bool WriteBlockForImageTransfer(uint unitNum, const uint blockNum, const uint8_t* srcBuffer);
+bool WriteBlockForImageTransfer(const uint unitNum, const uint blockNum, const uint8_t* srcBuffer);
 uint32_t GetBlockCountForImageTransfer(const uint32_t unitNum);
 uint GetRamdiskUnitNum();
 bool EraseEntireUnit(const uint unitNum);

@@ -369,7 +369,7 @@ exit:
 //
 // Output: bool - success
 //
-bool WriteBlockForImageTransfer(uint unitNum, const uint blockNum, const uint8_t* srcBuffer) {
+bool WriteBlockForImageTransfer(const uint unitNum, const uint blockNum, const uint8_t* srcBuffer) {
   bool success = false;
   
   //Validate unitNum
