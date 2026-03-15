@@ -186,7 +186,7 @@ void CTFTPTask::AddBinaryData(const uint8_t *data,const uint32_t len) {
 //
 
 ////////////////////////////////////////////////////////////////////
-// Parse Option for processing of OACK packet
+// Parse Options for processing of OACK packet
 //
 // Input: buffer - Pointer to data buffer
 //        len    - Length of data
@@ -203,7 +203,7 @@ void CTFTPTask::AddBinaryData(const uint8_t *data,const uint32_t len) {
 //    DEBUG_PRINTF("Option: %s=%s\n",option,value);
 //  }
 //
-bool CTFTPTask::ParseOption(const uint8_t *buffer, const size_t len, size_t *currentPos,const char**pOption,const char**pValue) {
+bool CTFTPTask::ParseOptions(const uint8_t *buffer, const size_t len, size_t *currentPos,const char**option_out,const char**value_out) {
   size_t firstNullPos  = -1;
   size_t secondNullPos = -1;
 
@@ -222,8 +222,8 @@ bool CTFTPTask::ParseOption(const uint8_t *buffer, const size_t len, size_t *cur
   }
   
   if (firstNullPos!=-1 && secondNullPos!=-1) {
-    *pOption = (char*)(buffer+*currentPos);
-    *pValue = (char*)(buffer+firstNullPos+1);
+    *option_out = (char*)(buffer+*currentPos);
+    *value_out = (char*)(buffer+firstNullPos+1);
     *currentPos = secondNullPos+1;
     return true;  //Option-Value found
   } else {
@@ -284,7 +284,7 @@ void CTFTPTask::Retry() {
 // This method is common to both CTFTPRXTask and CTFTPTXTask
 //
 void CTFTPTask::ProcessErrorPacket(const uint8_t* payload,uint16_t payloadlen) {
-  uint16_t errorcode = payload[2]*256+payload[3];
+  const uint16_t errorcode = payload[2]*256+payload[3];
 
   //TFTP protocol defines errorcode 0-8
   //We found that TFTP64 by Ph. Jounin server send errorcode 99
@@ -299,9 +299,10 @@ void CTFTPTask::ProcessErrorPacket(const uint8_t* payload,uint16_t payloadlen) {
     ERROR_PRINTF("tftp_state.error = TFTPERROR_ABORTED\n");
     return;
   }
-   
+  
+  const tftp_error_t tftp_error = (tftp_error_t)errorcode;
   DEBUG_PRINTF("Error Packet Received. errorcode = %d\n",errorcode);
-  if (errorcode == TFTPERROR_UNKNOWN_TID) {
+  if (tftp_error == TFTPERROR_UNKNOWN_TID) {
     //This error is not fatal. simply discard it
     ERROR_PRINTF("TFTPERROR_UNKNOWN_TID received. Discard it\n");
     return;
@@ -311,9 +312,9 @@ void CTFTPTask::ProcessErrorPacket(const uint8_t* payload,uint16_t payloadlen) {
   this->Complete();
   tftp_critical_section_enter_blocking();
   tftp_state.status = TFTPSTATUS_COMPLETED;
-  tftp_state.error = errorcode;
+  tftp_state.error = tftp_error;
   tftp_critical_section_exit();
   ERROR_PRINTF("tftp_state.status = TFTPSTATUS_COMPLETED\n");
-  ERROR_PRINTF("tftp_state.error = %d\n",errorcode);  
+  ERROR_PRINTF("tftp_state.error = %d\n",tftp_error);  
   return;
 }

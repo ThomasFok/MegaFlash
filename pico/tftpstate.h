@@ -65,7 +65,8 @@ typedef enum {
   TFTPERROR_WIFICONNECTIONLOST = -8, //WIFI Connection lost during File Transfer
   TFTPERROR_DNS = -9,                //Failed to resolve server hostname to IP Address
   TFTPERROR_WATCHDOG = -10,          //WatchDog timer timeout
-  TFTPERROR_RWFAILED = -11           //Read/Write to storage medium failed
+  TFTPERROR_RWFAILED = -11,          //Read/Write to storage medium failed
+  TFTPERROR_DOWRONGSIZE = -12        //DOS Order Image: Size not multiple of 8 blocks
 }tftp_error_t;
 
 #define TFTPSTATE_INVALIDBLOCKCOUNT (-1)
@@ -78,8 +79,8 @@ typedef struct {
   uint32_t blockTransferred;  //Number of block sent/received
   uint32_t tsize;             //size of the file being received in bytes
   uint32_t retries;           //Number of Retries
-  int32_t error;
-  uint8_t status;  
+  tftp_error_t error;
+  tftp_status_t status;  
   char server_hostname[TFTP_HOSTNAME_MAXLEN+1];
   char filename[TFTP_FILENAME_MAXLEN+1];
 } tftp_state_t;
@@ -93,11 +94,11 @@ void tftp_critical_section_exit();
 
 //Helper methods for DoTFTPStatus()
 uint8_t TFTPCalcProgressBarValue(uint32_t pbValueMax,const uint32_t blockTransferred,const uint32_t tsize);
-char* TFTPFormatStatusMessage(char* dest,const uint8_t status,int8_t error);
+char* TFTPFormatStatusMessage(char* dest,const tftp_status_t status,const tftp_error_t error);
 char* TFTPFormatBlocksMessage(char *dest,const uint32_t blockTransferred,const uint32_t tsize);
 char* TFTPFormatRetransmit(char *dest,const uint32_t retries);
 char* TFTPFormatElapsedTime(char *dest,const uint32_t elapsedTime);
-char* TFTPFormatErrorMessage(char* dest,const int32_t error);
+char* TFTPFormatErrorMessage(char* dest,const tftp_error_t error);
 
 #ifdef __cplusplus
 }

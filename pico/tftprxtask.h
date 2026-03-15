@@ -2,6 +2,7 @@
 #define _TFTPRXTASK_H
 
 #include "tftptask.h"
+#include "imagewriter.h"
 
 
 class CTFTPRXTask:public CTFTPTask {
@@ -22,20 +23,26 @@ protected:
   bool serverTIDAccepted;     //Server TID (remote_port) accepted
 
   //Event Handlers
-  //void EvtStart();
   void EvtDNSResult(const int dns_error, const ip_addr_t *ipaddr);
   void EvtUDPReceived(const uint8_t* payload,uint16_t payloadlen,ip_addr_t remote_addr,uint16_t remote_port);
   void EvtTimeout(uint32_t arg);
-  
+
+  //overridden virtual methods
+  virtual void Retry(); 
+  virtual void Complete();
+
   void StartTransfer();  
-  void Retry(); 
   void ProcessOACKPacket(const uint8_t* payload,uint16_t payloadlen,uint16_t remote_port);
   void ProcessDataPacket(const uint8_t* payload,uint16_t payloadlen,uint16_t remote_port);
   void HandleOACK_blksize(const char* value);
   void HandleOACK_tsize(const char* value);
+    
 private:
   //Helper method
   bool IsValidBlockNumber(const uint32_t blockNum);
+  
+  //Helper object
+  CImageWriter imageWriter;
 };
 
 

@@ -164,7 +164,7 @@ void CTFTPTXTask::ProcessOACKPacket(const uint8_t* payload,uint16_t payloadlen,u
   size_t currentPos=2;    //Option-Value pair starts at offset 2
   const char *option,*value;
   try {
-    while(ParseOption(payload,payloadlen,&currentPos,&option,&value)) {
+    while(ParseOptions(payload,payloadlen,&currentPos,&option,&value)) {
       DEBUG_PRINTF("option: %s=%s\n",option,value);
       if (0==strcmp(option,"blksize")) HandleOACK_blksize(value);
     }

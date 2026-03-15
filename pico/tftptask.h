@@ -61,7 +61,7 @@ protected:
   void AddOption(const char* option, const char* value);
   void AddOption(const char* option, const uint32_t value);
   void AddBinaryData(const uint8_t *data,const uint32_t len);
-  bool ParseOption(const uint8_t *buffer, const size_t len, size_t *currentPos,const char**pOption,const char**pValue);
+  bool ParseOptions(const uint8_t *buffer, const size_t len, size_t *currentPos,const char**option_out,const char**value_out);
 
   ////////////////////////////////////////////////////////////////////
   // Send the packet in txbuffer to server
@@ -76,11 +76,11 @@ protected:
     SendUDP(srcBuffer,len,this->server_port);
   }
   
-  
-  
+  //
   //Method common to both CTFTPRXTask and CTFTPTXTask
+  //
   void EvtStart();
-  void Retry();
+  virtual void Retry();
   void ProcessErrorPacket(const uint8_t* payload,uint16_t payloadlen);
 
 private:  

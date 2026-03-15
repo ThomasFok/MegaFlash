@@ -48,6 +48,7 @@ add_executable(${CMAKE_PROJECT_NAME}
     tftprxtask.cpp
     tftptxtask.cpp
     tftpstate.c
+		imagewriter.cpp
 )
 
 #standard C lib printf for FPU fout() function

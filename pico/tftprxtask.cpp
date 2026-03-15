@@ -19,8 +19,9 @@ extern "C" volatile tftp_state_t tftp_state;
 // Constructor
 // 
 CTFTPRXTask::CTFTPRXTask(const uint32_t unitNum,const char* hostname,const char* filename,const bool enable1kBlockSize,const uint32_t tftpTimeout,
-                         const uint32_t tftpMaxAttempt,const uint16_t tftpServerPort):
-                         CTFTPTask(unitNum, hostname, filename,enable1kBlockSize,tftpTimeout,tftpMaxAttempt,tftpServerPort) {
+                         const uint32_t tftpMaxAttempt,const uint16_t tftpServerPort)
+                         :CTFTPTask(unitNum, hostname, filename,enable1kBlockSize,tftpTimeout,tftpMaxAttempt,tftpServerPort)
+                         ,imageWriter(filename) {
   
   OACKReceived = false;
   hasCompleted = false;
@@ -165,7 +166,7 @@ void CTFTPRXTask::ProcessOACKPacket(const uint8_t* payload,uint16_t payloadlen,u
   size_t currentPos=2;    //Option-Value pair starts at offset 2
   const char *option,*value;
   try {
-    while(ParseOption(payload,payloadlen,&currentPos,&option,&value)) {
+    while(ParseOptions(payload,payloadlen,&currentPos,&option,&value)) {
       DEBUG_PRINTF("option: %s=%s\n",option,value);
       if (0==strcmp(option,"blksize")) HandleOACK_blksize(value);
       else if (0==strcmp(option,"tsize")) HandleOACK_tsize(value);
@@ -340,7 +341,7 @@ void CTFTPRXTask::ProcessDataPacket(const uint8_t* payload,uint16_t payloadlen,u
     if (eof_with512payload) {
       #if WRITETOFLASH
       if (!IsValidBlockNumber(blockReceived)) return;
-      success = WriteBlockForImageTransfer(unitNum, blockReceived, payload+4);  //Actual Data starts at offset 4
+      success = imageWriter.WriteBlock(unitNum, blockReceived, payload+4);  //Actual Data starts at offset 4
       if (!success) throw CTFTPTask::ERR_RWFAILED;
       #endif
       ++blockReceived;    
@@ -396,7 +397,7 @@ void CTFTPRXTask::ProcessDataPacket(const uint8_t* payload,uint16_t payloadlen,u
     
     #if WRITETOFLASH
     //blockReceived has been validated above
-    success = WriteBlockForImageTransfer(unitNum, blockReceived, payload+4);  //Actual Data starts at offset 4
+    success = imageWriter.WriteBlock(unitNum, blockReceived, payload+4);  //Actual Data starts at offset 4
     if (!success) throw CTFTPTask::ERR_RWFAILED;
     #endif
     ++blockReceived;    
@@ -407,7 +408,7 @@ void CTFTPRXTask::ProcessDataPacket(const uint8_t* payload,uint16_t payloadlen,u
     if (dataSize==1024) {
       #if WRITETOFLASH
       if (!IsValidBlockNumber(blockReceived)) return;      
-      success = WriteBlockForImageTransfer(unitNum, blockReceived, payload+4+512);  //Actual Data starts at offset 4
+      success = imageWriter.WriteBlock(unitNum, blockReceived, payload+4+512);  //Actual Data starts at offset 4
       if (!success) throw CTFTPTask::ERR_RWFAILED;
       #endif
       ++blockReceived;
@@ -470,7 +471,7 @@ void CTFTPRXTask::Retry() {
     return;    
   }
   
-  //Using base class implemntation
+  //Call base class implemntation
   CTFTPTask::Retry();
 }
 
@@ -488,7 +489,7 @@ longer Timeout period is started.
 There are 2 possible situation. 
 
 1) The last ACK is sent sucessfully. In this case, the server will not reply anything. 
-Timer will timeout. EvtTimeout()
+Timer will timeout. EvtTimeout() is called and it ends the TFTP process.
 
 2) The last ACK is lost. In this case, the server will resend last packet. EvtUDPReceived()
 handler will be called and eventually, it reaches Retry() method. Retry() will send the 
@@ -496,5 +497,25 @@ ACK packet one more time and then complete the process
 
 ****************************************************************************************/
 
-
-
+/////////////////////////////////////////////////////////////
+// Complete Method
+//
+// The size of DOS 3.3 image file should be multiple of 8 blocks.
+// If it is not, some block data remains in the buffer of imageWrite
+// object. In this case, shows error message (TFTPERROR_DOWRONGSIZE)
+//
+void CTFTPRXTask::Complete() {
+  if (imageWriter.getImageFormat()==ImageFormat::DO && !imageWriter.IsCompleted()) {
+    //This error has a lower priority. If another error has occured, don't
+    //overwrite tftp_state.error
+    if (tftp_state.error == TFTPERROR_NOERR) {
+      INFO_PRINTF("DOS Order Image File: Incorect Size\n");
+      tftp_critical_section_enter_blocking();
+      tftp_state.error = TFTPERROR_DOWRONGSIZE;
+      tftp_critical_section_exit();
+    }
+  }
+  
+  //Call base class implementation
+  CTFTPTask::Complete();
+}

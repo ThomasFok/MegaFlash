@@ -45,7 +45,7 @@ class CUDPTask {
 
     //Public Methods
     CUDPTask();
-    ~CUDPTask();
+    virtual ~CUDPTask();  /* must be virtual since this is a base class */
     virtual void Run(const char* ssid, const char* wpakey);
 
     //Getter methods
@@ -105,7 +105,7 @@ class CUDPTask {
     //
     //Completion
     //
-    void Complete();
+    virtual void Complete();
     bool completed;
 
     //Event Handlers

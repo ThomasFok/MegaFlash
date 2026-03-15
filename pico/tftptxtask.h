@@ -11,7 +11,7 @@ class CTFTPTXTask:public CTFTPTask {
 public:
   CTFTPTXTask(const uint32_t unitNum,const char* hostname,const char* filename,const bool enable1kBlockSize,const uint32_t tftpTimeout,const uint32_t tftpMaxAttempt,
               const uint16_t tftpServerPort);
-  ~CTFTPTXTask();
+  virtual ~CTFTPTXTask();
   
   //Override Run()
   virtual void Run(const char* ssid, const char* wpakey);
@@ -30,7 +30,6 @@ protected:
   bool serverTIDAccepted;      //Server TID (remote_port) accepted
 
   //Event Handlers
-  //void EvtStart();
   void EvtDNSResult(const int dns_error, const ip_addr_t *ipaddr);
   void EvtUDPReceived(const uint8_t* payload,uint16_t payloadlen,ip_addr_t remote_addr,uint16_t remote_port);
   void EvtTimeout(uint32_t arg);

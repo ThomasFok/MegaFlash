@@ -125,7 +125,7 @@ static char *PutEmptyString(char* dest) {
 // Output: char* - Point to the byte after the null character of
 //                 the generated message
 //
-char* TFTPFormatStatusMessage(char* dest,const uint8_t status,int8_t error){
+char* TFTPFormatStatusMessage(char* dest,const tftp_status_t status,const tftp_error_t error){
   static const char *STATUSMSG[] = { "Idle",
                                      "Starting",
                                      "Connecting to WIFI",
@@ -242,7 +242,7 @@ static char* PutWarningString(char* dest,char* errorMsg) {
 // Output: char* - Point to the byte after the null character of
 //                 the generated message
 //
-char* TFTPFormatErrorMessage(char* dest,const int32_t error) {
+char* TFTPFormatErrorMessage(char* dest,const tftp_error_t error) {
   //Shortcut for No Error
   if (error==TFTPERROR_NOERR) return PutEmptyString(dest);
 
@@ -314,6 +314,9 @@ char* TFTPFormatErrorMessage(char* dest,const int32_t error) {
       break;
     case TFTPERROR_RWFAILED:
       dest = PutErrorString(dest,"Storage medium I/O error");
+      break;
+    case TFTPERROR_DOWRONGSIZE:
+      dest = PutWarningString(dest,"DOS Order Image:Incorrect file size");
       break;
     default:
       dest = PutErrorString(dest,"")-1;   //-1 To exclude the null character

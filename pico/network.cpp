@@ -12,6 +12,7 @@
 #include "rtc.h"
 #include "network.h"
 #include "debug.h"
+#include "misc.h"
 #include "tftp.h"
 #include <typeinfo>
 
@@ -60,7 +61,7 @@ extern "C" volatile tftp_state_t tftp_state;
 ////////////////////////////////////////////////////////////
 // Convert CUDPTask exception to TFTP ERROR
 //
-static int ConvertExceptionToTFTPError(int e) {
+static tftp_error_t ConvertExceptionToTFTPError(const int e) {
   switch(e) {
     case CUDPTask::ERR_NONE:
       return TFTPERROR_NOERR;
@@ -94,6 +95,7 @@ void ExecuteTFTP(const uint32_t taskid) {
   const char* hostname = (const char*)tftp_state.server_hostname;
   const char* filename = (const char*)tftp_state.filename;
 
+  INFO_PRINTF("Heap = %d/%d\n",GetFreeHeap(),GetTotalHeap());
   TRACE_PRINTF("ExecuteTFTP: taskid=%d\n",taskid);  
   TRACE_PRINTF("dir = %d\n",dir);
   TRACE_PRINTF("unitNum = %d\n",unitNum);
@@ -108,10 +110,10 @@ void ExecuteTFTP(const uint32_t taskid) {
   //
   // Start the task
   //
-  int errorcode = TFTPERROR_NOERR;
+  tftp_error_t errorcode = TFTPERROR_NOERR;
   const char* ssid = GetSSID();   
   const char* wpakey = GetWPAKey(); 
-  CTFTPTask *task = NULL;
+  CTFTPTask *task = nullptr;
 
   try {
     if (dir==0)      task = new CTFTPRXTask(unitNum,hostname,filename,GetTFTPEnable1kBlockSize(), GetTFTPTimeout(),GetTFTPMaxAttempt(),GetTFTPServerPort());
@@ -143,7 +145,8 @@ void ExecuteTFTP(const uint32_t taskid) {
   tftp_critical_section_exit();
   
   //Free CTFTPTask object
-  if (task) delete task;
+  delete task;
+  INFO_PRINTF("Heap = %d/%d\n",GetFreeHeap(),GetTotalHeap());
 }
 
 
