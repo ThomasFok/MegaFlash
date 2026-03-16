@@ -68,7 +68,7 @@ static void DrawTFTPWindowFrame(const char* title) {
 // 
 // Input: page - '1'- '4' for page number display
 //
-static void DrawTFTPWindowFramePage(char page) {
+static void DrawTFTPWindowFramePage(const char page) {
   static char tftpWindowTitle[]  = "TFTP Disk Image Transfer (1/4)";
   tftpWindowTitle[26]=page;  
   DrawTFTPWindowFrame(tftpWindowTitle);
@@ -77,7 +77,7 @@ static void DrawTFTPWindowFramePage(char page) {
 //
 // Page 1 Text Strings
 //
-static char page1Prompt[] = "Supported Disk Image Formats\n\n\rDownload: ProDOS Order (.po/.hdv)\n\r          DOS Order    (.do/.dsk)\n\r  Upload: ProDOS Order (.po/.hdv)\n\n\rPlease select:";
+static char page1Prompt[] = "Supported Disk Image Formats\n\n\rDownload: ProDOS Order (.po/.hdv)\n\r          DOS Order    (.do/.dsk)\n\r  Upload: ProDOS Order (.po/.hdv)\n\n\n\rPlease select:";
 static char selectPrompt[] ="Cancel:esc            Select: \312 \313 \315";
 static const char* tftpMenuItems[] = {
   "Download from TFTP server",
@@ -95,7 +95,7 @@ static char caseSensitivityPrompt[] = "(Case sensitivity depends on file\n\rsyst
 ////////////////////////////////////////////////////////////
 // Print Download Confirmation Message
 //
-static void PrintDownloadConfirmation(uint8_t selectedUnit) {
+static void PrintDownloadConfirmation(const uint8_t selectedUnit) {
   static char prompt[]= "Download and write disk image file\n\rto drive %u. All existing data will\n\rBE ERASED.";
   cprintf(prompt,selectedUnit);
   newline2();
@@ -108,7 +108,7 @@ static void PrintDownloadConfirmation(uint8_t selectedUnit) {
 ///////////////////////////////////////////////////////////////
 // Print Upload Confirmation Message
 //
-static void PrintUploadConfirmation(uint8_t selectedUnit,char *filename) {
+static void PrintUploadConfirmation(const uint8_t selectedUnit,const char *filename) {
   static char prompt[]="Upload the content of drive %u to\n\rTFTP Server. The file on server may\n\rbe overwritten without warning if\n\rthe file already exists.";
                          
   cprintf(prompt,selectedUnit);
@@ -142,12 +142,12 @@ void DoTFTPImageTransfer() {
   ///////////////////////////////////////////////////////////  
   DrawTFTPWindowFramePage('1');
   cputs(page1Prompt);
-  gotoxy(0,14);
+  gotoxy(0,14);   
   cputs(selectPrompt);
   
   mnu_currentMenuItem = 0;
   do {
-    key = DoMenu(tftpMenuItems,TFTPMENUITEMCOUNT,0,8);
+    key = DoMenu(tftpMenuItems,TFTPMENUITEMCOUNT,0,9);
     if (key==KEY_ESC) return;
   }while (key!=KEY_ENTER);
   dir = mnu_currentMenuItem;  //0=Download, 1=Upload
