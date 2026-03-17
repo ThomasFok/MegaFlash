@@ -49,7 +49,9 @@ public:
     }    
     
     ~CRxPacket() {
+      cyw43_arch_lwip_begin();
       if (rxpbuf) pbuf_free(rxpbuf);
+      cyw43_arch_lwip_end();
     }   
 };
 
