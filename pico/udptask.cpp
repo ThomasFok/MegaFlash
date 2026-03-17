@@ -58,6 +58,55 @@ volatile bool CUDPTask::isRunning = false;
 volatile bool CUDPTask::abortRequested = false;
 CUDPTask *CUDPTask::runningObject = nullptr;
 
+
+///////////////////////////////////////////////////////////////////
+// Helper class to disable/restore interrupts if PICO_CYW43_ARCH_POLL
+// is not used. Read the note at udp_callback()
+// The destructor ensures the interrupt is restored.
+//
+class CInterrupt {
+public:
+  CInterrupt() {
+    #if !PICO_CYW43_ARCH_POLL
+    disabled = false;
+    status = 0;
+    #endif 
+  }
+  
+  ~CInterrupt() {
+    #if !PICO_CYW43_ARCH_POLL
+    if (disabled) restore();
+    #endif
+  }
+
+  void disable() {
+    #if !PICO_CYW43_ARCH_POLL
+    if (disabled) assert(0); //already disabled
+    else {
+      status = save_and_disable_interrupts();
+      disabled = true;
+    }
+    #endif 
+  }
+
+  void restore() {
+    #if !PICO_CYW43_ARCH_POLL
+    if (!disabled) assert(0); //restore without disable
+    else {
+      restore_interrupts(status);
+      disabled = false;
+    }
+    #endif 
+  }
+
+private:
+  #if !PICO_CYW43_ARCH_POLL
+  bool disabled;
+  uint32_t status;
+  #endif 
+};
+
+
 ///////////////////////////////////////////////////////////////////
 // Constructor
 //
@@ -119,7 +168,6 @@ void CUDPTask::InitCyw43() {
 // Call this function to execute the task
 //
 void CUDPTask::Run(const char* ssid, const char* wpakey) {
-  bool packetReceived = false;
   CUDPTask::isRunning = true;
   CUDPTask::abortRequested = false;
   CUDPTask::runningObject = this;
@@ -163,25 +211,26 @@ void CUDPTask::Run(const char* ssid, const char* wpakey) {
       }
       
       //UDP Packet Received
-      #if !(PICO_CYW43_ARCH_POLL)
-      const uint32_t status = save_and_disable_interrupts();  //See note at udp_callback()
-      #endif
-      if(!packetQueue.empty()) {
-        packetReceived = true;
-        CRxPacket& packet = packetQueue.front();
-        rxdatalen = packet.rxpbuf->tot_len;
-        pbuf_copy_partial(packet.rxpbuf,rxbuffer,rxdatalen,0);
-        rxremoteipaddr = packet.rxremoteipaddr;
-        rxremoteport = packet.rxremoteport;
-        packetQueue.pop();  //The destructor of CRxPacket frees pbuf buffer.
-      }      
-      #if !(PICO_CYW43_ARCH_POLL)
-      restore_interrupts(status);
-      #endif
-      if (packetReceived) {
-        packetReceived = false;
-        WatchdogUpdate();         
-        EvtUDPReceived(rxbuffer,rxdatalen,rxremoteipaddr,rxremoteport);
+      {//Block scope: The destructor of CInterrupt ensures interrupt is restored.
+        CInterrupt interrupt;
+        
+        interrupt.disable();  //Read note at udp_callback()
+        while (!packetQueue.empty()) {
+          CRxPacket& packet = packetQueue.front();
+          rxremoteipaddr = packet.rxremoteipaddr;
+          rxremoteport = packet.rxremoteport;
+          rxdatalen = packet.rxpbuf->tot_len;
+          cyw43_arch_lwip_begin();
+          pbuf_copy_partial(packet.rxpbuf,rxbuffer,rxdatalen,0);
+          cyw43_arch_lwip_end();
+          packetQueue.pop();  //The destructor of CRxPacket frees pbuf buffer.
+        
+          interrupt.restore();
+          WatchdogUpdate();         
+          EvtUDPReceived(rxbuffer,rxdatalen,rxremoteipaddr,rxremoteport);
+          interrupt.disable();
+        }      
+        interrupt.restore();        
       }
       
       //Timer Timeout
@@ -203,10 +252,6 @@ void CUDPTask::Run(const char* ssid, const char* wpakey) {
         this->EvtWatchdogTimeout();
         throw CUDPTask::ERR_WATCHDOG;
       }
-      
-      //Note:
-      //EvtUDPReceived() is called by udp_callback() directly.      
-      //No need to handle the event here.
       
       //Abort Request
       if (CUDPTask::abortRequested) CUDPTask::Abort(this);
