@@ -9,7 +9,7 @@
 
 
 //Function Prototype
-void udp_callback(void *arg, struct udp_pcb *pcb, struct pbuf *pub, const ip_addr_t *remote_addr, u16_t remot_port);
+void udp_recv_callback(void *arg, struct udp_pcb *pcb, struct pbuf *pub, const ip_addr_t *remote_addr, u16_t remot_port);
 
 //--------------------------------------------------------------------
 // This function is modified from cyw43_arch_wifi_connect_timeout_ms()
@@ -61,7 +61,7 @@ CUDPTask *CUDPTask::runningObject = nullptr;
 
 ///////////////////////////////////////////////////////////////////
 // Helper class to disable/restore interrupts if PICO_CYW43_ARCH_POLL
-// is not used. Read the note at udp_callback()
+// is not used. Read the note at udp_recv_callback()
 // The destructor ensures the interrupt is restored.
 //
 class CInterrupt {
@@ -182,7 +182,7 @@ void CUDPTask::Run(const char* ssid, const char* wpakey) {
     pcb = udp_new();
     DEBUG_PRINTF("udp_new() pcb = 0x%x\n",(uint32_t)pcb);
     udp_bind(pcb, IP4_ADDR_ANY, 0 /*random port*/); //Bind local IF
-    udp_recv(pcb,udp_callback,this);  //Set callback function
+    udp_recv(pcb,udp_recv_callback,this);  //Set callback function
     
     //Start Event
     WatchdogUpdate();
@@ -214,7 +214,7 @@ void CUDPTask::Run(const char* ssid, const char* wpakey) {
       {//Block scope: The destructor of CInterrupt ensures interrupt is restored.
         CInterrupt interrupt;
         
-        interrupt.disable();  //Read note at udp_callback()
+        interrupt.disable();  //Read note at udp_recv_callback()
         while (!packetQueue.empty()) {
           CRxPacket& packet = packetQueue.front();
           rxremoteipaddr = packet.rxremoteipaddr;
@@ -523,8 +523,8 @@ void CUDPTask::SendUDP(const uint8_t *payload,const uint16_t payloadlen, const u
 //    object. The workaround is to disable interrupts in CUDPTask::Run() when it 
 //    is accessing the packetQueue.
 //
-void udp_callback(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf, const ip_addr_t *remote_addr, u16_t remote_port) {
-  TRACE_PRINTF("udp_callback invoked\n");
+void udp_recv_callback(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf, const ip_addr_t *remote_addr, u16_t remote_port) {
+  TRACE_PRINTF("udp_recv_callback invoked\n");
   CUDPTask* pTask = (CUDPTask*) arg;  
   
   //Don't proceed if pbuf is null
@@ -538,10 +538,10 @@ void udp_callback(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf, const ip_ad
       pTask->packetQueue.emplace(pbuf,*remote_addr,remote_port);
       pbuf=nullptr;   //The RxPacket object owns pbuf now. Also, make sure pbuf is not freed by pbuf_free() below
     } else {
-      ERROR_PRINTF("ERROR: udp_callback() pbuf->tot_len > UDP_BUFFERSIZE\n");
+      ERROR_PRINTF("ERROR: udp_recv_callback() pbuf->tot_len > UDP_BUFFERSIZE\n");
     }
   } else {
-    WARN_PRINTF("udp_callback() arg NOT POINTING to current UDPTask object. Ignore it!\n");
+    WARN_PRINTF("udp_recv_callback() arg NOT POINTING to current UDPTask object. Ignore it!\n");
   }
 
   if (pbuf) pbuf_free(pbuf);

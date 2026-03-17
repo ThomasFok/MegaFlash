@@ -94,7 +94,7 @@ class CUDPTask {
     
     //Declare callback functions as friend
     friend void dns_callback(const char *hostname, const ip_addr_t *ipaddr, void *arg);
-    friend void udp_callback(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf, const ip_addr_t *remote_addr, u16_t remote_port);
+    friend void udp_recv_callback(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf, const ip_addr_t *remote_addr, u16_t remote_port);
     
   protected:
     void InitCyw43();
