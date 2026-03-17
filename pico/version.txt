@@ -1,3 +1,10 @@
+Version 1.1.10
+Pico Firmware
+- Bug Fix: Storage medium I/O error cannot be handled correctly during TFTP Transfer
+
+Apple Firmware
+- No changes (V1.0.1)
+
 Version 1.1.9 17-Mar-2026
 Pico Firmware
 - Control Panel: Ask users to save settings when Esc key is pressed.

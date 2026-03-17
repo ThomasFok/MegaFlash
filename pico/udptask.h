@@ -4,6 +4,7 @@
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
 #include "debug.h"
+#include <queue>
 
 #define DEFAULT_DNSTIMEOUT 5000       //DNS timeout in msec
 #define UDP_BUFFERSIZE 1500           //UDP Packet Buffer Size
@@ -19,6 +20,24 @@ enum {
   DNSERR_INVALIDHOST =  1
 };
 
+//Encapsulate a received UDP packet
+//Note: This object owns pbuf buffer and its destructor frees the buffer.
+class CRxPacket {
+public:  
+    struct pbuf* rxpbuf;
+    ip_addr_t rxremoteipaddr;
+    uint16_t  rxremoteport;
+
+    CRxPacket(struct pbuf* const pbuf, const ip_addr_t remoteipaddr,const uint16_t remoteport) {
+        rxpbuf = pbuf;
+        rxremoteipaddr = remoteipaddr;
+        rxremoteport = remoteport;
+    }
+    
+    ~CRxPacket() {
+      if (rxpbuf) pbuf_free(rxpbuf);
+    }   
+};
 
 class CUDPTask {
   public:
@@ -88,6 +107,7 @@ class CUDPTask {
     void SendUDP(const uint8_t *payload,const uint16_t len, const uint16_t port);
     struct udp_pcb *pcb;
     //To receive result from UDP Callback
+    std::queue<CRxPacket> packetQueue; //Queue to store received UDP packets
     uint8_t *rxbuffer;
     uint16_t rxdatalen;
     ip_addr_t rxremoteipaddr;

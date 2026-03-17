@@ -119,6 +119,7 @@ void CUDPTask::InitCyw43() {
 // Call this function to execute the task
 //
 void CUDPTask::Run(const char* ssid, const char* wpakey) {
+  bool packetReceived = false;
   CUDPTask::isRunning = true;
   CUDPTask::abortRequested = false;
   CUDPTask::runningObject = this;
@@ -159,6 +160,28 @@ void CUDPTask::Run(const char* ssid, const char* wpakey) {
         dnsTimeout = TIMEOUT_NEVER;
         WatchdogUpdate();      
         this->EvtDNSResult(DNSERR_TIMEOUT, nullptr);
+      }
+      
+      //UDP Packet Received
+      #if !(PICO_CYW43_ARCH_POLL)
+      const uint32_t status = save_and_disable_interrupts();  //See note at udp_callback()
+      #endif
+      if(!packetQueue.empty()) {
+        packetReceived = true;
+        CRxPacket& packet = packetQueue.front();
+        rxdatalen = packet.rxpbuf->tot_len;
+        pbuf_copy_partial(packet.rxpbuf,rxbuffer,rxdatalen,0);
+        rxremoteipaddr = packet.rxremoteipaddr;
+        rxremoteport = packet.rxremoteport;
+        packetQueue.pop();  //The destructor of CRxPacket frees pbuf buffer.
+      }      
+      #if !(PICO_CYW43_ARCH_POLL)
+      restore_interrupts(status);
+      #endif
+      if (packetReceived) {
+        packetReceived = false;
+        WatchdogUpdate();         
+        EvtUDPReceived(rxbuffer,rxdatalen,rxremoteipaddr,rxremoteport);
       }
       
       //Timer Timeout
@@ -439,9 +462,21 @@ void CUDPTask::SendUDP(const uint8_t *payload,const uint16_t payloadlen, const u
 /////////////////////////////////////////////////////////////////////////////
 // UDP Received callback function
 //
-// UDP Payload is copied to rxbuffer
-// remote IP address and port is copied to rxremoteipaddr and rxremoteport
-// EvtUDPReceived() is called.
+// pbuf, remote_addr and remote_port is copied to CRxPacket object and send
+// to Run() method via packetQueue
+// The CRxPacket object owns the pbuf buffer and is responsible to free the
+// buffer
+//
+// Note
+// 1) V1.1.9 tries to call EvtUDPReceived() method directly in this function
+//    But the C++ exception thrown by CUDPTask sub-class cannot be caught.
+//    So, we need to call the method inside CUDPTask::Run().
+//
+// 2) If cyw43_arch_poll is used, this function is called via cyw43_arch_poll().
+//    Otherwise, this function is called by interrupt service routine. It may 
+//    casue problem if interrupt occurs while the main thread is accessing packetQueue
+//    object. The workaround is to disable interrupts in CUDPTask::Run() when it 
+//    is accessing the packetQueue.
 //
 void udp_callback(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf, const ip_addr_t *remote_addr, u16_t remote_port) {
   TRACE_PRINTF("udp_callback invoked\n");
@@ -454,14 +489,9 @@ void udp_callback(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf, const ip_ad
   //see note at dns_callback()
   if (pTask!=nullptr && CUDPTask::GetRunningObject()==pTask) {
     if (pbuf->tot_len <= UDP_BUFFERSIZE) {
-      //Copy recevied data to CUDPTask object
-      //and call its EvtUDPReceived() handler
-      pTask->rxdatalen = pbuf->tot_len;
-      pbuf_copy_partial(pbuf,pTask->rxbuffer,pbuf->tot_len,0);
-      pTask->rxremoteipaddr=*remote_addr;
-      pTask->rxremoteport=remote_port;
-      pTask->WatchdogUpdate();      
-      pTask->EvtUDPReceived(pTask->rxbuffer,pTask->rxdatalen,pTask->rxremoteipaddr,pTask->rxremoteport);
+      //Add the UDP to packetQueue
+      pTask->packetQueue.emplace(pbuf,*remote_addr,remote_port);
+      pbuf=nullptr;   //The RxPacket object owns pbuf now. Also, make sure pbuf is not freed by pbuf_free() below
     } else {
       ERROR_PRINTF("ERROR: udp_callback() pbuf->tot_len > UDP_BUFFERSIZE\n");
     }
@@ -469,7 +499,7 @@ void udp_callback(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf, const ip_ad
     WARN_PRINTF("udp_callback() arg NOT POINTING to current UDPTask object. Ignore it!\n");
   }
 
-  pbuf_free(pbuf);
+  if (pbuf) pbuf_free(pbuf);
 }
 
 
