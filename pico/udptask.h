@@ -21,7 +21,10 @@ enum {
 };
 
 //Encapsulate a received UDP packet
-//Note: This object owns pbuf buffer and its destructor frees the buffer.
+//Note: 
+//This object owns pbuf buffer and its destructor frees the buffer.
+//Current implementation does not need Copy Constructor and Move Constructor
+//They are defined to avoid potential problems in the future.
 class CRxPacket {
 public:  
     struct pbuf* rxpbuf;
@@ -33,6 +36,17 @@ public:
         rxremoteipaddr = remoteipaddr;
         rxremoteport = remoteport;
     }
+    
+    //Disable Copy constructor since rxpbuf should not be copied directly.
+    CRxPacket(const CRxPacket&) = delete;
+    
+    // Move Constructor: Transfer ownership
+    CRxPacket(CRxPacket&& other) noexcept 
+      :rxpbuf(other.rxpbuf)
+      ,rxremoteipaddr(other.rxremoteipaddr)
+      ,rxremoteport(other.rxremoteport) {
+      other.rxpbuf = nullptr;
+    }    
     
     ~CRxPacket() {
       if (rxpbuf) pbuf_free(rxpbuf);
