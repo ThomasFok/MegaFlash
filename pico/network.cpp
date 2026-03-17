@@ -88,7 +88,10 @@ static tftp_error_t ConvertExceptionToTFTPError(const int e) {
   }
 }
 
-
+////////////////////////////////////////////////////////////
+//
+// Execute a TFTP transfer
+//
 void ExecuteTFTP(const uint32_t taskid) {
   uint32_t dir = tftp_state.dir;
   uint unitNum = tftp_state.unitNum;
@@ -111,8 +114,8 @@ void ExecuteTFTP(const uint32_t taskid) {
   // Start the task
   //
   tftp_error_t errorcode = TFTPERROR_NOERR;
-  const char* ssid = GetSSID();   
-  const char* wpakey = GetWPAKey(); 
+  const char* const ssid = GetSSID();   
+  const char* const wpakey = GetWPAKey(); 
   CTFTPTask *task = nullptr;
 
   try {
@@ -152,6 +155,7 @@ void ExecuteTFTP(const uint32_t taskid) {
 
 ////////////////////////////////////////////////////////////
 //
+// Update RTC from NTP Server
 //
 NetworkError_t GetNetworkTime() {
   DEBUG_PRINTF("GetNetworkTime()\n");
@@ -182,7 +186,10 @@ NetworkError_t GetNetworkTime() {
 }
 
 
-
+////////////////////////////////////////////////////////////
+//
+// Test WIFI connectivity and NTP Server
+//
 void TestWifi(TestResult_t *testResultPtr) {
   DEBUG_PRINTF("TestWifi()\n");
   try {
