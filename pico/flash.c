@@ -1254,6 +1254,7 @@ static uint32_t __no_inline_not_in_flash_func(ReadFromFlashByDMA)(uint8_t *destB
   // Don't leave overrun flag set
   spi_get_hw(spi0)->icr = SPI_SSPICR_RORIC_BITS;  
 
+  //DEBUG Only. Output to UART
   INFO_PRINTF("%c",len>512?'!':'@');
 
   return 0;
