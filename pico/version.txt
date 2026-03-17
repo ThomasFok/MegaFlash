@@ -1,6 +1,6 @@
 Version 1.1.9 17-Mar-2026
 Pico Firmware
-- Control Panel: Ask users to save setting when Esc key is pressed.
+- Control Panel: Ask users to save settings when Esc key is pressed.
 - TFTP Download: Convert DOS order image (.dsk or .do) to ProDOS order
 - Bug Fix: NTP Update is executed twice when the machine is powered on
 - Bug Fix: Memory Leak after TFTP Transfer
