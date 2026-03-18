@@ -39,7 +39,7 @@ protected:
     
 private:
   //Helper method
-  bool IsValidBlockNumber(const uint32_t blockNum);
+  bool ValidateBlockNumber(const uint32_t blockNum);
   
   //Helper object
   CImageWriter imageWriter;

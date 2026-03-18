@@ -259,7 +259,7 @@ void CTFTPRXTask::HandleOACK_tsize(const char* value) {
 // If it is valid, return true;
 // If it is not, set error and terminate the process.
 //
-bool CTFTPRXTask::IsValidBlockNumber(const uint32_t blockNum) {
+bool CTFTPRXTask::ValidateBlockNumber(const uint32_t blockNum) {
   //Check if number of blocks received exceeds the capacity of the unit
   if (blockNum<blockCapacity) 
     return true;
@@ -340,7 +340,7 @@ void CTFTPRXTask::ProcessDataPacket(const uint8_t* payload,uint16_t payloadlen,u
     
     if (eof_with512payload) {
       #if WRITETOFLASH
-      if (!IsValidBlockNumber(blockReceived)) return;
+      if (!ValidateBlockNumber(blockReceived)) return;
       success = imageWriter.WriteBlock(unitNum, blockReceived, payload+4);  //Actual Data starts at offset 4
       if (!success) throw CTFTPTask::ERR_RWFAILED;
       #endif
@@ -366,7 +366,8 @@ void CTFTPRXTask::ProcessDataPacket(const uint8_t* payload,uint16_t payloadlen,u
   //over odd filesize. So, we check for it first.
   
   //Check if number of blocks received exceeds the capacity of the unit
-  if (!IsValidBlockNumber(blockReceived)) return;
+  //If it is not valid, ValidateBlockNumber() sets error and terminate the process.
+  if (!ValidateBlockNumber(blockReceived)) return;
   
   //If dataSize is < tftpBlockSize, it signals end of transmission
   //But the filesize is not multiple of 512
@@ -407,7 +408,7 @@ void CTFTPRXTask::ProcessDataPacket(const uint8_t* payload,uint16_t payloadlen,u
     
     if (dataSize==1024) {
       #if WRITETOFLASH
-      if (!IsValidBlockNumber(blockReceived)) return;      
+      if (!ValidateBlockNumber(blockReceived)) return;      
       success = imageWriter.WriteBlock(unitNum, blockReceived, payload+4+512);  //Actual Data starts at offset 4
       if (!success) throw CTFTPTask::ERR_RWFAILED;
       #endif
