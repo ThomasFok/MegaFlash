@@ -502,7 +502,7 @@ ACK packet one more time and then complete the process
 // Complete Method
 //
 // The size of DOS 3.3 image file should be multiple of 8 blocks.
-// If it is not, some block data remains in the buffer of imageWrite
+// If it is not, some block data remain in the buffer of imageWriter
 // object. In this case, shows error message (TFTPERROR_DOWRONGSIZE)
 //
 void CTFTPRXTask::Complete() {
