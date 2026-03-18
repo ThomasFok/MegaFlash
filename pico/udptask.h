@@ -180,9 +180,17 @@ public:
       }
     }
     
-    //Abort running UDPTask with timeout
-    //return true if no task is running or the task has been aborted
-    //return false if timeout
+
+    
+    //////////////////////////////////////////////////////////////////////
+    //Abort Request from another core
+    //
+    //This method is called by another core to abort the running task.
+    //If no task is running, return true immediately.
+    //Else try to abort the task by setting abortRequested to true.
+    //Then, wait the task to be aborted with a timeout.
+    //If the task is aborted, return true.
+    //If timeout, return false.
     static bool AbortTimeout_ms(const uint32_t timeout_ms) {
       if (!IsRunning()) return true;
       else {
