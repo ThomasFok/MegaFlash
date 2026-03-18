@@ -171,7 +171,8 @@ private:
 public:  
     static const char* GetErrorCodeMessage(const int error);  //Translate error code to error message for debug
     static CUDPTask* GetRunningObject() {return runningObject;}
-    static bool IsRunning() {return CUDPTask::isRunning;}     //Is a CUDPTask running
+    static bool IsRunning() {return CUDPTask::isRunning;}     //Is a CUDPTask running?
+    static bool IsAbortRequested() {return CUDPTask::abortRequested;}
     static void RequestAbortIfRunning() {
       if (!IsRunning()) return;
       else {
@@ -212,7 +213,7 @@ protected:
     
     //This method is called when abortRequested is set to true.
     //It calls EvtAbortedRequested() method of the running task
-    //If it returns true, it aborts the task by throwing NETERR_ABORTED.
+    //If it returns true, it aborts the task by throwing ERR_ABORTED.
     static void Abort(CUDPTask* p) {                 //Try to abort
       bool proceed = p->EvtAbortRequested();         //Ask if to proceed the abort request
       CUDPTask::abortRequested = false;
