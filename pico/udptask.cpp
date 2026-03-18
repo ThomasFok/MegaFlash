@@ -64,16 +64,16 @@ CUDPTask *CUDPTask::runningObject = nullptr;
 // is not used. Read the note at udp_recv_callback()
 // The destructor ensures the interrupt is restored.
 //
-class CInterrupt {
+class CInterruptDisabler {
 public:
-  CInterrupt() {
+  CInterruptDisabler() {
     #if !PICO_CYW43_ARCH_POLL
     disabled = false;
     status = 0;
     #endif 
   }
   
-  ~CInterrupt() {
+  ~CInterruptDisabler() {
     #if !PICO_CYW43_ARCH_POLL
     if (disabled) restore();
     #endif
@@ -211,8 +211,8 @@ void CUDPTask::Run(const char* ssid, const char* wpakey) {
       }
       
       //UDP Packet Received
-      {//Block scope: The destructor of CInterrupt ensures interrupt is restored.
-        CInterrupt interrupt;
+      {//Block scope: The destructor of CInterruptDisabler ensures interrupt is restored.
+        CInterruptDisabler interrupt;
         
         interrupt.disable();  //Read note at udp_recv_callback()
         while (!packetQueue.empty()) {
