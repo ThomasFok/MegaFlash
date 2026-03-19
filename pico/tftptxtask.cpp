@@ -254,10 +254,14 @@ void CTFTPTXTask::SendDataPacket() {
   //Also, update blockSent and hasCompleted
   memcpy(txbuffer,nextDataPacketBuf,nextDataPacketLen);
   txpacketlen = nextDataPacketLen;  
-  uint32_t payloadlen = txpacketlen - 4; //4 bytes for Data Packet header
+  const uint32_t payloadlen = txpacketlen - 4; //4 bytes for Data Packet header
+  assert(payloadlen==0 || payloadlen==512 || payloadlen==1024);
   blockSent += payloadlen/PRODOS_BLOCKSIZE;
   
   //Transfer Completed?
+  //Not fully loaded payload means this is the last packet.
+  //If tftpBlockSize ==  512, payloadlen = 0 signals end of transfer
+  //If tftpBlockSize == 1024, payloadlen = 0 or 512 signals end of transfer
   if(payloadlen<tftpBlockSize) {
     hasCompleted = true;  
   } else {
