@@ -26,7 +26,7 @@
 // 0x000B = V1.1.7 20-Sep-2025
 // 0x000C = V1.1.8 11-Mar-2026
 // 0x000D = V1.1.9 17-Mar-2026
-// 0x000E = V1.1.10 18-Mar-2026
+// 0x000E = V1.1.10 19-Mar-2026
 
 //Deivce Signature Bytes
 #define SIGNATURE1 0x88
