@@ -12,6 +12,7 @@
 #define ROLLOVER_LIMIT 3955046400    //1st May,2025 12:00am, 3955046400 = 2208988800 + 1746057600(unix epoch of 1,May,2025)
 
 CNTPTask::CNTPTask():CUDPTask() {
+  static_assert(sizeof(secondsSince1970)==8);
   attempt = 0;
   secondsSince1970 = 0;
 }
