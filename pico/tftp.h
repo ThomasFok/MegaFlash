@@ -24,12 +24,8 @@
 does not response if the Ack message is delivered succesfully. So, we need to
 wait slightly longer than 3s before we terminate the process. This is the minimum
 timeout value of last Ack message. Current implementation uses TFTP Timeout or 
-TFTP_TIMEOUT_DEFAULT, whichever is greater */
+TFTP_TIMEOUT_LASTACK_MIN, whichever is greater */
 #define TFTP_TIMEOUT_LASTACK_MIN 3100 
-
-
-
-
 
 
 #endif
