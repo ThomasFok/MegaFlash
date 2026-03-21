@@ -17,7 +17,7 @@ CNTPTask::CNTPTask():CUDPTask() {
 }
 
 /////////////////////////////////////////////////////////////////////////
-// Atempt to query NTP Server
+// Attempt to query NTP Server
 //
 // The operation flow is:
 //
@@ -68,8 +68,8 @@ void CNTPTask::EvtUDPReceived(const uint8_t* payload,uint16_t payloadlen,ip_addr
   CancelTimer();  
   
   //Validate the packet
-  uint8_t mode = payload[0] & 0x7;
-  uint8_t stratum = payload[1];
+  const uint8_t mode = payload[0] & 0x7;
+  const uint8_t stratum = payload[1];
   
   if (ip_addr_cmp(&remote_addr,&server_addr) &&
       remote_port == NTP_PORT &&
@@ -81,7 +81,7 @@ void CNTPTask::EvtUDPReceived(const uint8_t* payload,uint16_t payloadlen,ip_addr
     this->Complete();
     
     //Get the time from payload
-    uint32_t secondsSince1900 = payload[40] << 24 | payload[41] << 16 | payload[42] << 8 | payload[43];
+    const uint32_t secondsSince1900 = payload[40] << 24 | payload[41] << 16 | payload[42] << 8 | payload[43];
        
     //Convert to time_t
     if (secondsSince1900 < ROLLOVER_LIMIT) secondsSince1970 = secondsSince1900 + 0x100000000ull - NTP_DELTA;
