@@ -37,13 +37,13 @@ bool IsUDPTaskRunning() {
 
 bool IsNTPTaskRunning() {
   CUDPTask *runningTask=CUDPTask::GetRunningObject();  
-  if (runningTask==NULL) return false; //To avoid exception when dereference a NULL pointer below
+  if (runningTask==nullptr) return false; //To avoid exception when dereference a NULL pointer below
   return typeid(CNTPTask)==typeid(*runningTask);
 }
 
 bool IsTestWifiTaskRunning() {
   CUDPTask *runningTask=CUDPTask::GetRunningObject();  
-  if (runningTask==NULL) return false; //To avoid exception when dereference a NULL pointer below 
+  if (runningTask==nullptr) return false; //To avoid exception when dereference a NULL pointer below 
   return typeid(CTestWifiTask)==typeid(*runningTask);
 }
 
@@ -93,10 +93,10 @@ static tftp_error_t ConvertExceptionToTFTPError(const int e) {
 // Execute a TFTP transfer
 //
 void ExecuteTFTP(const uint32_t taskid) {
-  uint32_t dir = tftp_state.dir;
-  uint unitNum = tftp_state.unitNum;
-  const char* hostname = (const char*)tftp_state.server_hostname;
-  const char* filename = (const char*)tftp_state.filename;
+  const uint32_t dir = tftp_state.dir;
+  const uint unitNum = tftp_state.unitNum;
+  const char* const hostname = (const char*)tftp_state.server_hostname;
+  const char* const filename = (const char*)tftp_state.filename;
 
   INFO_PRINTF("Heap = %d/%d\n",GetFreeHeap(),GetTotalHeap());
   TRACE_PRINTF("ExecuteTFTP: taskid=%d\n",taskid);  
