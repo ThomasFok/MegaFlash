@@ -1,5 +1,6 @@
 #include "tftp.h"
 #include "tftptask.h"
+#include "misc.h"
 
 extern "C" volatile tftp_state_t tftp_state;
 
@@ -7,8 +8,8 @@ extern "C" volatile tftp_state_t tftp_state;
 CTFTPTask::CTFTPTask(const uint32_t unitNum,const char* hostname,const char* filename,const bool enable1kBlockSize,const uint32_t tftpTimeout,
                      const uint32_t tftpMaxAttempt,const uint16_t tftpServerPort):CUDPTask() {
   assert(unitNum!=0);
-  assert(hostname!=NULL);
-  assert(filename!=NULL);
+  assert(hostname!=nullptr);
+  assert(filename!=nullptr);
   assert(strlen(filename)<=255);
   UpdateTFTPState();
   this->unitNum = unitNum;
@@ -16,13 +17,8 @@ CTFTPTask::CTFTPTask(const uint32_t unitNum,const char* hostname,const char* fil
   this->filename = filename;
   this->enable1kBlockSize = enable1kBlockSize;
   
-  if (tftpTimeout<TFTP_TIMEOUT_MIN)     this->tftpTimeout = TFTP_TIMEOUT_MIN;
-  else if(tftpTimeout>TFTP_TIMEOUT_MAX) this->tftpTimeout = TFTP_TIMEOUT_MAX;
-  else                                  this->tftpTimeout = tftpTimeout;
-  
-  if (tftpMaxAttempt<TFTP_MAXATTEMPT_MIN)      this->tftpMaxAttempt = TFTP_MAXATTEMPT_MIN;
-  else if (tftpMaxAttempt>TFTP_MAXATTEMPT_MAX) this->tftpMaxAttempt = TFTP_MAXATTEMPT_MAX;
-  else                                         this->tftpMaxAttempt = tftpMaxAttempt;
+  this->tftpTimeout = CLAMP(tftpTimeout,TFTP_TIMEOUT_MIN,TFTP_TIMEOUT_MAX);
+  this->tftpMaxAttempt = CLAMP(tftpMaxAttempt,TFTP_MAXATTEMPT_MIN,TFTP_MAXATTEMPT_MAX);
   
   this->tftpServerPort = tftpServerPort;
   this->tftpTimeoutLastACK = MAX(tftpTimeout,TFTP_TIMEOUT_LASTACK_MIN);
@@ -34,11 +30,11 @@ CTFTPTask::CTFTPTask(const uint32_t unitNum,const char* hostname,const char* fil
 }
 
 CTFTPTask::~CTFTPTask() {
-  if (this->txbuffer) delete[] this->txbuffer;
+  delete[] this->txbuffer;
 }
 
 ////////////////////////////////////////////////////////////////////
-// Initalize TFTP State
+// Initialize TFTP State
 //
 void CTFTPTask::UpdateTFTPState() {
   tftp_critical_section_enter_blocking();
@@ -123,11 +119,11 @@ void CTFTPTask::BuildRQPacket(const uint8_t type) {
   
   //filename
   strcpy((char*)(txbuffer+2),this->filename);
-  txpacketlen += strlen(this->filename)+1; //+1 for NULL tftp_state.blockTransferred
+  txpacketlen += strlen(this->filename)+1; //+1 for NULL char
   
   //mode
   strcpy((char*)(txbuffer+txpacketlen),"octet");
-  txpacketlen += 5+1; //len of "octet"  and NULL tftp_state.blockTransferred
+  txpacketlen += 5+1; //len of "octet" and NULL char
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -138,10 +134,10 @@ void CTFTPTask::BuildRQPacket(const uint8_t type) {
 //  
 void CTFTPTask::AddOption(const char* option, const char* value) {
   strcpy((char*)(txbuffer+txpacketlen),option);
-  txpacketlen += strlen(option)+1; //+1 for NULL tftp_state.blockTransferred
+  txpacketlen += strlen(option)+1; //+1 for NULL char
   
   strcpy((char*)(txbuffer+txpacketlen),value);
-  txpacketlen += strlen(value)+1; //+1 for NULL tftp_state.blockTransferred
+  txpacketlen += strlen(value)+1; //+1 for NULL char
   assert(txpacketlen<=TXBUFFERSIZE);
 }
 
@@ -300,7 +296,7 @@ void CTFTPTask::ProcessErrorPacket(const uint8_t* payload,uint16_t payloadlen) {
     return;
   }
   
-  const tftp_error_t tftp_error = (tftp_error_t)errorcode;
+  const tftp_error_t tftp_error = static_cast<tftp_error_t>(errorcode);
   DEBUG_PRINTF("Error Packet Received. errorcode = %d\n",errorcode);
   if (tftp_error == TFTPERROR_UNKNOWN_TID) {
     //This error is not fatal. simply discard it
