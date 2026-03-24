@@ -9,13 +9,14 @@
 extern "C" volatile tftp_state_t tftp_state;
 
 
-
+//Set to 1 to write received data to storage medium
 #ifdef NDEBUG
 #define WRITETOFLASH 1  /* Release Build*/
 #else
 #define WRITETOFLASH 1  /* Debug Build*/
 #endif
 
+//////////////////////////////////////////////////////////
 // Constructor
 // 
 CTFTPRXTask::CTFTPRXTask(const uint32_t unitNum,const char* hostname,const char* filename,const bool enable1kBlockSize,const uint32_t tftpTimeout,
@@ -32,6 +33,7 @@ CTFTPRXTask::CTFTPRXTask(const uint32_t unitNum,const char* hostname,const char*
   DEBUG_PRINTF("blockCapacity = %d\n",blockCapacity);
 }
 
+//////////////////////////////////////////////////////////
 // Override Run()
 //
 void CTFTPRXTask::Run(const char* ssid, const char* wpakey){
@@ -42,14 +44,6 @@ void CTFTPRXTask::Run(const char* ssid, const char* wpakey){
  
   CTFTPTask::Run(ssid,wpakey);
 }
-
-
-//////////////////////////////////////////////////////////
-//
-// Event Start Handler
-// See CTFTPTask::EvtStart();
-//
-
 
 //////////////////////////////////////////////////////////
 //
@@ -211,8 +205,8 @@ void CTFTPRXTask::ProcessOACKPacket(const uint8_t* payload,uint16_t payloadlen,u
 // throw E_NEEDRESTART if the blksize is not 512 or 1024
 //
 void CTFTPRXTask::HandleOACK_blksize(const char* value) {
-  bool is1024 = (0==strcmp(value,"1024"));
-  bool is512 = (0==strcmp(value,"512"));
+  const bool is1024 = (0==strcmp(value,"1024"));
+  const bool is512 = (0==strcmp(value,"512"));
   
   //Only 512 and 1024 are acceptable
   if (is512 || is1024) {
@@ -241,7 +235,7 @@ void CTFTPRXTask::HandleOACK_tsize(const char* value) {
   if (strlen(value)==0) return;
   
   //Convert it to unsigned integer
-  uint32_t tsize = strtoul(value,NULL,10);
+  const uint32_t tsize = strtoul(value,NULL,10);
 
   //ignore if it is 0.
   if (tsize == 0) return;
@@ -283,9 +277,8 @@ bool CTFTPRXTask::ValidateBlockNumber(const uint32_t blockNum) {
 // Assume the packet is valid.
 //
 void CTFTPRXTask::ProcessDataPacket(const uint8_t* payload,uint16_t payloadlen,uint16_t remote_port) {
-  uint16_t block = payload[2]*256+payload[3];
-  uint16_t dataSize = payloadlen-4;
-  bool success = true;
+  const uint16_t block = payload[2]*256+payload[3];
+  const uint16_t dataSize = payloadlen-4;
 
   //Validate Block Number
   if (block != expectedBlock) {
@@ -328,7 +321,7 @@ void CTFTPRXTask::ProcessDataPacket(const uint8_t* payload,uint16_t payloadlen,u
   
   //=true if this Data Packet signals end of transmission but 
   //it also carry 512 bytes of data
-  bool eof_with512payload = (tftpBlockSize==1024 && dataSize==512);
+  const bool eof_with512payload = (tftpBlockSize==1024 && dataSize==512);
   
   
   //If dataSize == 0 or eof_with512payload, it means end of transmission without any issues
@@ -341,7 +334,7 @@ void CTFTPRXTask::ProcessDataPacket(const uint8_t* payload,uint16_t payloadlen,u
     if (eof_with512payload) {
       #if WRITETOFLASH
       if (!ValidateBlockNumber(blockReceived)) return;
-      success = imageWriter.WriteBlock(unitNum, blockReceived, payload+4);  //Actual Data starts at offset 4
+      const bool success = imageWriter.WriteBlock(unitNum, blockReceived, payload+4);  //Actual Data starts at offset 4
       if (!success) throw CTFTPTask::ERR_RWFAILED;
       #endif
       ++blockReceived;    
@@ -398,7 +391,7 @@ void CTFTPRXTask::ProcessDataPacket(const uint8_t* payload,uint16_t payloadlen,u
     
     #if WRITETOFLASH
     //blockReceived has been validated above
-    success = imageWriter.WriteBlock(unitNum, blockReceived, payload+4);  //Actual Data starts at offset 4
+    const bool success = imageWriter.WriteBlock(unitNum, blockReceived, payload+4);  //Actual Data starts at offset 4
     if (!success) throw CTFTPTask::ERR_RWFAILED;
     #endif
     ++blockReceived;    
@@ -409,7 +402,7 @@ void CTFTPRXTask::ProcessDataPacket(const uint8_t* payload,uint16_t payloadlen,u
     if (dataSize==1024) {
       #if WRITETOFLASH
       if (!ValidateBlockNumber(blockReceived)) return;      
-      success = imageWriter.WriteBlock(unitNum, blockReceived, payload+4+512);  //Actual Data starts at offset 4
+      const bool success = imageWriter.WriteBlock(unitNum, blockReceived, payload+4+512);  //Actual Data starts at offset 4
       if (!success) throw CTFTPTask::ERR_RWFAILED;
       #endif
       ++blockReceived;
@@ -426,7 +419,7 @@ void CTFTPRXTask::ProcessDataPacket(const uint8_t* payload,uint16_t payloadlen,u
 
 
 //////////////////////////////////////////////////////////
-// Process Error Packet
+// ProcessErrorPacket() method
 // See CTFTP::ProcessErrorPacket
 //
 
@@ -452,7 +445,7 @@ void CTFTPRXTask::EvtTimeout(uint32_t arg){
 }
 
 /////////////////////////////////////////////////////////////
-// Retry Method
+// Retry() Method
 //
 // Send the last packet again.
 // If hasCompleted is set, send the last ACK Packet one more
