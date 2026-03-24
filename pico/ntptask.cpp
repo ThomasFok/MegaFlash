@@ -12,7 +12,7 @@
 #define ROLLOVER_LIMIT 3955046400    //1st May,2025 12:00am, 3955046400 = 2208988800 + 1746057600(unix epoch of 1,May,2025)
 
 CNTPTask::CNTPTask():CUDPTask() {
-  static_assert(sizeof(secondsSince1970)==8);
+  static_assert(sizeof(secondsSince1970)==8); //Assume time_t is 64-bit
   attempt = 0;
   secondsSince1970 = 0;
 }
@@ -106,7 +106,7 @@ void CNTPTask::EvtTimeout(uint32_t arg){
 // Get NTP Server Hostname
 //
 // The following hostname are returned in round-robin fashion 
-// unless the user has override the default setting.
+// unless the user has overridden the default setting.
 //
 // 0.pool.ntp.org
 // 1.pool.ntp.org
@@ -123,7 +123,7 @@ const char* CNTPTask::GetNTPServerHostname() {
   char c = hostname[0];
   hostname[0] = c=='3'?'0':c+1;
   
-  return (const char*)hostname;
+  return static_cast<const char*>(hostname);
 }
 
 
@@ -134,8 +134,7 @@ void CNTPTask::LookupNTPServer() {
 void CNTPTask::SendNTPRequest() {
   assert(GetServerIpResolved());
   DEBUG_PRINTF("Sending NTP Request Attempt: #%d\n",attempt+1);
-  uint8_t payload[NTP_MSG_LEN];
-  memset(payload, 0, NTP_MSG_LEN);
+  uint8_t payload[NTP_MSG_LEN] = {};  //set all elements to 0
   payload[0] = 0x23;  //0x1b for version 3, 0x23 for version 4
       
   SendUDP(payload, NTP_MSG_LEN, NTP_PORT);   
