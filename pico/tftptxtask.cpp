@@ -17,7 +17,6 @@ CTFTPTXTask::CTFTPTXTask(const uint32_t unitNum,const char* hostname,const char*
                          const uint32_t tftpMaxAttempt,const uint16_t tftpServerPort):
                          CTFTPTask(unitNum, hostname, filename,enable1kBlockSize,tftpTimeout,tftpMaxAttempt,tftpServerPort) {
   
-  
   nextDataPacketBuf = new uint8_t[TXBUFFERSIZE];
   nextDataPacketLen = 0;
   
@@ -48,12 +47,6 @@ void CTFTPTXTask::Run(const char* ssid, const char* wpakey){
   
   CTFTPTask::Run(ssid,wpakey);
 }
-
-//////////////////////////////////////////////////////////
-//
-// Event Start Handler
-// See CTFTPTask::EvtStart();
-//
 
 
 //////////////////////////////////////////////////////////
@@ -134,8 +127,6 @@ void CTFTPTXTask::EvtUDPReceived(const uint8_t* payload,uint16_t payloadlen,ip_a
   else if (opcode == OP_ACK) ProcessACKPacket(payload,payloadlen,remote_port);
   else if (opcode == OP_ERROR) ProcessErrorPacket(payload, payloadlen);
   //discard other opcode packets
-    
-
 }
 
 
@@ -204,8 +195,8 @@ void CTFTPTXTask::ProcessOACKPacket(const uint8_t* payload,uint16_t payloadlen,u
 // throw E_NEEDRESTART if the blksize is not 512 or 1024
 //
 void CTFTPTXTask::HandleOACK_blksize(const char* value) {
-  bool is1024 = (0==strcmp(value,"1024"));
-  bool is512 = (0==strcmp(value,"512"));
+  const bool is1024 = (0==strcmp(value,"1024"));
+  const bool is512 = (0==strcmp(value,"512"));
   
   //Only 512 and 1024 are acceptable
   if (is512 || is1024) {
@@ -303,7 +294,7 @@ uint32_t CTFTPTXTask::BuildDataPacket(uint8_t *destBuffer,uint16_t tftpBlockNum,
   } else {
     //Put first block to payload
     assert(blockNum<=0xffff);
-    uint error = ReadBlock(unitNum, blockNum++, destBuffer+4, NULL); //Read ProDOS block
+    uint error = ReadBlock(unitNum, blockNum++, destBuffer+4, NULL /*spErrorOut*/); //Read ProDOS block
     if (error!=MFERR_NONE) throw CTFTPTask::ERR_RWFAILED;   
     packetLen += PRODOS_BLOCKSIZE;
     
@@ -311,7 +302,7 @@ uint32_t CTFTPTXTask::BuildDataPacket(uint8_t *destBuffer,uint16_t tftpBlockNum,
     if (tftpBlockSize==1024) {
       if (blockNum<blockCount) {
         assert(blockNum<=0xffff);
-        error = ReadBlock(unitNum, blockNum,destBuffer+4+512,NULL); //Read ProDOS block
+        error = ReadBlock(unitNum, blockNum,destBuffer+4+512, NULL /*spErrorOut*/); //Read ProDOS block
         if (error!=MFERR_NONE) throw CTFTPTask::ERR_RWFAILED;           
         packetLen += PRODOS_BLOCKSIZE;
       }     
@@ -330,7 +321,7 @@ uint32_t CTFTPTXTask::BuildDataPacket(uint8_t *destBuffer,uint16_t tftpBlockNum,
 // Accept remote_port if this is the first ACK Packet
 //
 void CTFTPTXTask::ProcessACKPacket(const uint8_t* payload,uint16_t payloadlen,uint16_t remote_port){
-  uint16_t block = payload[2]*256+payload[3];
+  const uint16_t block = payload[2]*256+payload[3];
   TRACE_PRINTF("ACK Received block=%d\n",block);
   
   //First ACK Packet
@@ -383,10 +374,10 @@ void CTFTPTXTask::EvtTimeout(uint32_t arg){
 }
 
 /////////////////////////////////////////////////////////////
-// Retry Method
+// Retry() Method
 // See CTFTPTask::Retry()
 
 
 //////////////////////////////////////////////////////////
-// Process Error Packet
-// See CTFTP::ProcessErrorPacket
+// ProcessErrorPacket() Method
+// See CTFTP::ProcessErrorPacket()
