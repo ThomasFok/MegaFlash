@@ -10,6 +10,9 @@ extern "C" {
 //Minimum of 3 values
 #define MIN3(a,b,c) MIN(MIN(a,b),c)
 
+//Make sure l<=x<=u
+#define CLAMP(x,l,u) MIN(u,MAX(l,x))
+
 int stricmp(const char* s1, const char* s2);
 char *strtrim(char *str);
 
