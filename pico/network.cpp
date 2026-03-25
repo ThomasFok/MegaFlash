@@ -15,6 +15,7 @@
 #include "misc.h"
 #include "tftp.h"
 #include <typeinfo>
+#include <memory>
 
 #ifdef __cplusplus
 extern "C" {
@@ -116,13 +117,14 @@ void ExecuteTFTP(const uint32_t taskid) {
   tftp_error_t errorcode = TFTPERROR_NOERR;
   const char* const ssid = GetSSID();   
   const char* const wpakey = GetWPAKey(); 
-  CTFTPTask *task = nullptr;
 
   try {
-    if (dir==0)      task = new CTFTPRXTask(unitNum,hostname,filename,GetTFTPEnable1kBlockSize(), GetTFTPTimeout(),GetTFTPMaxAttempt(),GetTFTPServerPort());
-    else if (dir==1) task = new CTFTPTXTask(unitNum,hostname,filename,GetTFTPEnable1kBlockSize(), GetTFTPTimeout(),GetTFTPMaxAttempt(),GetTFTPServerPort());
+    std::unique_ptr<CTFTPTask> task;
+    if (dir==0)      task=std::make_unique<CTFTPRXTask>(unitNum,hostname,filename,GetTFTPEnable1kBlockSize(), GetTFTPTimeout(),GetTFTPMaxAttempt(),GetTFTPServerPort());
+    else if (dir==1) task=std::make_unique<CTFTPTXTask>(unitNum,hostname,filename,GetTFTPEnable1kBlockSize(), GetTFTPTimeout(),GetTFTPMaxAttempt(),GetTFTPServerPort());
     else {
       assert(0); //should not happen
+      return;
     }  
       
     task->Run(ssid,wpakey);
@@ -147,8 +149,6 @@ void ExecuteTFTP(const uint32_t taskid) {
   tftp_state.status = TFTPSTATUS_COMPLETED;
   tftp_critical_section_exit();
   
-  //Free CTFTPTask object
-  delete task;
   INFO_PRINTF("Heap = %d/%d\n",GetFreeHeap(),GetTotalHeap());
 }
 
