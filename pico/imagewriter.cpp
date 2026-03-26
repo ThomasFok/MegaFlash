@@ -146,6 +146,13 @@ bool CImageWriter::Flush(const uint unitNum) {
   if (format == ImageFormat::DO) {
     assert(firstBlockNum != UNKNOWNBLOCKNUM);
     assert(blocksBuffer!=nullptr);
+    
+    //All 8 blocks are needed to assemble ProDOS blocks. If blockCount<8,
+    //the data in the buffer is garbage. Discarding the data in the buffer
+    //is better than writing garbage to storage medium.
+    //return true because there is no I/O error in storage medium.
+    if (blockCount<8) return true;
+    
     for(uint32_t i=0;i<8;++i) {
       if (!WriteBlockForImageTransfer(unitNum,firstBlockNum+i,blocksBuffer+BLOCKSIZE*i)) return false;
     }
