@@ -21,10 +21,10 @@ protected:
   void SendNTPRequest();
 
   //Override base class methods
-  void EvtStart();
-  void EvtDNSResult(const int dnserr, const ip_addr_t *ipaddr);
-  void EvtUDPReceived(const uint8_t* payload,uint16_t payloadlen,ip_addr_t remote_addr,uint16_t remote_port);
-  void EvtTimeout(uint32_t arg);
+  virtual void EvtStart() override;
+  virtual void EvtDNSResult(const int dnserr, const ip_addr_t *ipaddr) override;
+  virtual void EvtUDPReceived(const uint8_t* payload,uint16_t payloadlen,ip_addr_t remote_addr,uint16_t remote_port) override;
+  virtual void EvtTimeout(uint32_t arg) override;
 };
 
 
