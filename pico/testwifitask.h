@@ -6,13 +6,13 @@
 
 class CTestWifiTask:public CNTPTask {
 public:
-  CTestWifiTask(TestResult_t *p):CNTPTask() {this->testResultPtr=p;}
+  CTestWifiTask(TestResult_t *p):CNTPTask(),testResultPtr(p) {}
 
 protected:
   TestResult_t *testResultPtr;
 
   //Override base class methods
-  void EvtStart();
+  virtual void EvtStart() override;
 };
 
 #endif
