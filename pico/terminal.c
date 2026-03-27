@@ -122,6 +122,13 @@ static void DeviceInfo() {
   printf("%s",dataBuffer);
 
   //
+  //GCC Version Number
+  //
+  #if __GNUC__
+  printf("GCC Version = %s\n",__VERSION__);
+  #endif
+
+  //
   //Heap Usage
   //
   printf("Free/Total Heap = %d/%d\n",GetFreeHeap(),GetTotalHeap());
