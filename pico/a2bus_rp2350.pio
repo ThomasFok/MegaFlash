@@ -111,7 +111,7 @@ read_cycle:
   wait 1 gpio nDEVSEL_GPIO [7]
   ;Delay awhile before wrapping to the begining
   ;In case there is bouncing or glitch at nDEVSEL, 
-	;the cycle will not be false triggered.
+  ;the cycle will not be false triggered.
 
 .wrap
 
