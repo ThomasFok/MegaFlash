@@ -13,6 +13,8 @@ include(pico_sdk_import.cmake)
 project(megaflash C CXX ASM)
 set(PICO_CXX_ENABLE_EXCEPTIONS 1)
 set(PICO_CXX_ENABLE_RTTI 1)
+set(CMAKE_C_STANDARD 17)
+set(CMAKE_CXX_STANDARD 17)
 pico_sdk_init()
 
 #add source file here
