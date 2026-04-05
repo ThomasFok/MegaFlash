@@ -216,8 +216,4 @@ typedef enum {
 #define TFTP_HOSTNAME_MAXLEN 80     /* Not including the NULL characters */
 #define TFTP_FILENAME_MAXLEN 80     /* Not including the NULL characters */
 
-
-
-
-
 #endif

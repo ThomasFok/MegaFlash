@@ -4,9 +4,6 @@
 #include "tftptask.h"
 
 
-
-
-
 class CTFTPTXTask:public CTFTPTask {
 public:
   CTFTPTXTask(const uint32_t unitNum,const char* hostname,const char* filename,const bool enable1kBlockSize,const uint32_t tftpTimeout,const uint32_t tftpMaxAttempt,
@@ -42,7 +39,5 @@ protected:
   
   uint32_t BuildDataPacket(uint8_t *destBuffer,uint16_t tftpBlock, uint32_t blockNum);
 };
-
-
 
 #endif

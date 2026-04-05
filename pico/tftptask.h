@@ -87,10 +87,4 @@ private:
   void BuildRQPacket(const uint8_t type);
 };
 
-
-
-
-
-
-
 #endif

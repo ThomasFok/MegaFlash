@@ -453,7 +453,3 @@ void GetDeviceInfoString(char* dest) {
   dest += sprintf(dest,"Flash Chip #1 JEDEC ID = %Xh\n\r", ReadJEDECID(1));
 }
 
-
-
-
-
