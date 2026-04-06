@@ -1147,6 +1147,7 @@ static uint32_t ChipIDToCapacity(const uint32_t id) {
   else if (id==0xef4020) return 64;     //Winbond W25Q512JV
   else if (id==0xef7020) return 64;     //Winbond W25Q512JV-DTR  
   else if (id==0xef7022) return 256;    //Winbond W25Q02JV-DTR
+  else if (id==0x204020) return 64;     //Alliance AS25F3512MQ
     
   return 0;
 }
