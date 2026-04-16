@@ -561,14 +561,16 @@ This number in MBF is
 
 81 C9 0F DA A2 00
 
-And Division by Zero error occurs if this number is put into TAN().
+And Division by Zero error occurs if this number is put into TAN()
+on real Apple II.
 
-If 81 C9 0F DA A1 00 is used, Division by zero error also occurs.
-But if this number is put into tan() on Pico, the result is
+If 81 C9 0F DA A1 00 is put into TAN() on Apple II, Division by 
+zero error also occurs. But if this number is put into tan() on 
+Pico, the result is
 
 1.899580e+09.
 
-If 81 C9 0F DA A0 00 is used, there is no error.
+If 81 C9 0F DA A0 00 is used on Apple II, there is no error.
 
 So, in order to have the same behaviour as real Apple II, this
 function returns DIV0ERROR when the absolute value of the result
