@@ -11,7 +11,7 @@
 ****************************************************/
 
 #define FIRMWAREVER     0x000E
-#define FIRMWAREVERSTR  "V1.1.10"
+#define FIRMWAREVERSTR  "V1.1.11Dev"
 // 0x0000 = V0.1
 // 0x0001 = V0.2   18-Apr-2025
 // 0x0002 = V0.3   05-May-2025

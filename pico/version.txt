@@ -1,6 +1,13 @@
+Version 1.1.11
+Pico Firmware
+- Support Alliance AS25F3512MQ flash chip
+
+Apple Firmware
+- No changes (V1.0.1)
+
 Version 1.1.10 19-Mar-2026
 Pico Firmware
-- Bug Fix: Storage medium I/O error cannot be handled correctly during TFTP Transfer
+- Fix a bug introduced in V1.1.9: Storage medium I/O error cannot be handled correctly during TFTP Transfer
 
 Apple Firmware
 - No changes (V1.0.1)
