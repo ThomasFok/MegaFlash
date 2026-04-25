@@ -4,13 +4,14 @@
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
 #include "debug.h"
-#include <queue>
+#include "ringqueue.h"
+#include <memory>
 
-#define DEFAULT_DNSTIMEOUT 5000       //DNS timeout in msec
-#define UDP_BUFFERSIZE 1500           //UDP Packet Buffer Size
-#define HEARTBEAT_PERIOD   50         //Execute event loop every HEARTBEAT_PERIOD in msec
-#define WATCHDOG_TIMEOUT   (15*1000)  //Watchdog Timer timeout in msec
-
+static constexpr uint32_t DEFAULT_DNSTIMEOUT = 5000;    //DNS timeout in msec
+static constexpr uint32_t UDP_BUFFERSIZE = 1500;        //UDP Packet Buffer Size
+static constexpr uint32_t HEARTBEAT_PERIOD = 50;        //Execute event loop every HEARTBEAT_PERIOD in msec
+static constexpr uint32_t WATCHDOG_TIMEOUT = (10*1000); //Watchdog Timer timeout in msec
+static constexpr size_t   PACKETQUEUE_SIZE = 8;         //Rx Packet Queue Capacity
 
 #define TIMEOUT_NEVER at_the_end_of_time
 enum {
@@ -19,51 +20,50 @@ enum {
   DNSERR_INVALIDHOST =  1
 };
 
-//Encapsulate a received UDP packet
-//Note: 
-//This object owns pbuf buffer and its destructor frees the buffer.
-//Current implementation does not need Copy Constructor and Move Constructor
-//They are defined to avoid potential problems in the future.
-class CRxPacket {
-public:  
-  struct pbuf* rxpbuf;
-  ip_addr_t rxremoteipaddr;
-  uint16_t  rxremoteport;
-
-  CRxPacket(struct pbuf* const pbuf, const ip_addr_t remoteipaddr,const uint16_t remoteport) {
-      rxpbuf = pbuf;
-      rxremoteipaddr = remoteipaddr;
-      rxremoteport = remoteport;
-  }
-    
-  //Disable Copy constructor since rxpbuf should not be copied directly.
-  CRxPacket(const CRxPacket&) = delete;
-  
-  // Move Constructor: Transfer ownership
-  CRxPacket(CRxPacket&& other) noexcept 
-    :rxpbuf(other.rxpbuf)
-    ,rxremoteipaddr(other.rxremoteipaddr)
-    ,rxremoteport(other.rxremoteport) {
-    other.rxpbuf = nullptr;
-  }    
-    
-  ~CRxPacket() {
-    if (rxpbuf!=nullptr){
+//A helper struct to hold the custom deleter function of struct pbuf*
+struct pbuf_deleter_t {
+	void operator()(struct pbuf* pbuf) 	{
+    if (pbuf != nullptr) {
       cyw43_arch_lwip_begin();
-      pbuf_free(rxpbuf);
+      pbuf_free(pbuf);
       cyw43_arch_lwip_end();
-    }
-  }   
+    }    
+	}
 };
+
+//unique_ptr of struct pbuf* with custom deleter
+using unique_ptr_pbuf_t = std::unique_ptr<struct pbuf, pbuf_deleter_t>;
+
+//Encapsulate a received UDP packet
+struct RxPacket {
+	RxPacket() {}
+	explicit RxPacket(unique_ptr_pbuf_t& pbuf, ip_addr_t remoteipaddr, uint16_t remoteport)
+		:rxpbuf(std::move(pbuf)), rxremoteipaddr(remoteipaddr), rxremoteport(remoteport) {}
+    
+	//Disallow Copying since unique_ptr is not copyable
+	RxPacket(const RxPacket& other) = delete;
+	RxPacket& operator=(const RxPacket& other) = delete;
+
+	//Move Constructor and Assignment
+	RxPacket(RxPacket&& other) = default;
+	RxPacket& operator=(RxPacket&& other) = default;
+
+	unique_ptr_pbuf_t rxpbuf;
+	ip_addr_t rxremoteipaddr;
+	uint16_t  rxremoteport;
+};
+
+//PakcetQueue typedef
+using PacketQueue = ringqueue<RxPacket, PACKETQUEUE_SIZE>;
 
 class CUDPTask {
 public:
-  //Constant
-  const uint32_t WIFI_COUNTRY = CYW43_COUNTRY_WORLDWIDE;
-  const int WIFI_MAX_ATTEMPT = 3;
+  //Constants
+  static const uint32_t WIFI_COUNTRY = CYW43_COUNTRY_WORLDWIDE;
+  static const int WIFI_MAX_ATTEMPT = 3;
 
   //Error Code 0-15 is reserved for CUDPTask
-  static const int ERR_NONE      = 0;
+  static const int ERR_NONE       = 0;
   static const int ERR_NOTPICOW   = 1;
   static const int ERR_SSIDNOTSET = 2;
   static const int ERR_NONET      = 3;        //No matching SSID
@@ -71,7 +71,7 @@ public:
   static const int ERR_NOIP       = 5;        //DHCP problem
   static const int ERR_WIFINOTCONNECTED = 6;  //Other Problems
   static const int ERR_CONNECTIONLOST   = 7;  //WIFI is disconnect during the process
-  static const int ERR_DNSINVALIDHOST   = 8;  //Hostname is invalid or not exist
+  static const int ERR_DNSINVALIDHOST   = 8;  //Hostname is invalid or does not exist
   static const int ERR_DNSTIMEOUT       = 9;  //Timeout during DNS Lookup
   static const int ERR_WATCHDOG         = 10; //Watchdog Timer timeout
   static const int ERR_ABORTED          = 11; //Aborted by request
@@ -79,9 +79,15 @@ public:
   //Error Code 16-31 is for subclass
   static const int ERR_SUBCLASS_BEGIN  = 16;
 
-  //Public Methods
+  //Constructor and Destructor
   CUDPTask();
   virtual ~CUDPTask();  /* must be virtual since this is a base class */
+
+  //Disallow copying
+  CUDPTask(const CUDPTask&) = delete;
+  CUDPTask& operator=(const CUDPTask& ) = delete;
+
+  //Public Methods
   virtual void Run(const char* ssid, const char* wpakey);
 
   //Getter methods
@@ -89,7 +95,6 @@ public:
   bool GetServerIpResolved() const {return this->serverIpResolved;}
   ip_addr_t GetServerAddr() const {return this->server_addr;}
   bool GetCompleted() const {return this->completed;}
-
   
   //Declare callback functions as friend
   friend void dns_callback(const char *hostname, const ip_addr_t *ipaddr, void *arg);
@@ -124,11 +129,8 @@ protected:
   void SendUDP(const uint8_t *payload,const uint16_t len, const uint16_t port);
   struct udp_pcb *pcb;
   //To receive result from UDP Callback
-  std::queue<CRxPacket> packetQueue; //Queue to store received UDP packets
-  uint8_t *rxbuffer;
-  uint16_t rxdatalen;
-  ip_addr_t rxremoteipaddr;
-  uint16_t  rxremoteport;
+  PacketQueue packetQueue; //Queue to store received UDP packets
+  uint8_t *rxbuffer;        //buffer to store UDP packet payload
 
 
   //
@@ -179,7 +181,7 @@ public:
       abortRequested = true;
     }
   }
-
+    
     
   //////////////////////////////////////////////////////////////////////
   //Abort Request from another core

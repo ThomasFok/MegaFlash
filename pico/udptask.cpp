@@ -6,8 +6,6 @@
 #include "debug.h"
 #include "misc.h"
 
-
-
 //Function Prototype
 void udp_recv_callback(void *arg, struct udp_pcb *pcb, struct pbuf *pub, const ip_addr_t *remote_addr, u16_t remot_port);
 
@@ -16,7 +14,7 @@ void udp_recv_callback(void *arg, struct udp_pcb *pcb, struct pbuf *pub, const i
 // The original function fails to report CYW43_LINK_NONET
 //
 static int wifi_connect_timeout_ms(const char *ssid, const char *pw, uint32_t auth, uint32_t timeout_ms) {
-  absolute_time_t timeout = make_timeout_time_ms(timeout_ms);
+  const absolute_time_t timeout = make_timeout_time_ms(timeout_ms);
 
   int err = cyw43_arch_wifi_connect_bssid_async(ssid, nullptr, pw, auth);
   if (err) return err;
@@ -60,54 +58,6 @@ CUDPTask *CUDPTask::runningObject = nullptr;
 
 
 ///////////////////////////////////////////////////////////////////
-// Helper class to disable/restore interrupts if PICO_CYW43_ARCH_POLL
-// is not used. Read the note at udp_recv_callback()
-// The destructor ensures the interrupt is restored.
-//
-class CInterruptDisabler {
-public:
-  CInterruptDisabler() {
-    #if !PICO_CYW43_ARCH_POLL
-    disabled = false;
-    status = 0;
-    #endif 
-  }
-  
-  ~CInterruptDisabler() {
-    #if !PICO_CYW43_ARCH_POLL
-    if (disabled) restore();
-    #endif
-  }
-
-  void disable() {
-    #if !PICO_CYW43_ARCH_POLL
-    if (disabled) assert(0); //already disabled
-    else {
-      status = save_and_disable_interrupts();
-      disabled = true;
-    }
-    #endif 
-  }
-
-  void restore() {
-    #if !PICO_CYW43_ARCH_POLL
-    if (!disabled) assert(0); //restore without disable
-    else {
-      restore_interrupts(status);
-      disabled = false;
-    }
-    #endif 
-  }
-
-private:
-  #if !PICO_CYW43_ARCH_POLL
-  bool disabled;
-  uint32_t status;
-  #endif 
-};
-
-
-///////////////////////////////////////////////////////////////////
 // Constructor
 //
 CUDPTask::CUDPTask() {
@@ -120,12 +70,8 @@ CUDPTask::CUDPTask() {
   pcb = nullptr;
   completed = false;
   rxbuffer = new uint8_t[UDP_BUFFERSIZE];
-  rxdatalen = 0;
-  rxremoteipaddr=IPADDR4_INIT(0);
-  rxremoteport=0;
   watchdogTimeout = TIMEOUT_NEVER;
   hasInitedCyw43 = false;
-
 }
 
 ///////////////////////////////////////////////////////////////////
@@ -191,7 +137,7 @@ void CUDPTask::Run(const char* ssid, const char* wpakey) {
     //Event Loop
     do {
       //Run the loop every HEARTBEAT_PERIOD to check the abortRequested flag
-      absolute_time_t nextRun = make_timeout_time_ms(HEARTBEAT_PERIOD);
+      const absolute_time_t nextRun = make_timeout_time_ms(HEARTBEAT_PERIOD);
       
       cyw43_arch_poll();
       
@@ -207,31 +153,24 @@ void CUDPTask::Run(const char* ssid, const char* wpakey) {
       if (time_reached(dnsTimeout)) {
         dnsTimeout = TIMEOUT_NEVER;
         WatchdogUpdate();      
-        this->EvtDNSResult(DNSERR_TIMEOUT, nullptr);
+        this->EvtDNSResult(DNSERR_TIMEOUT, nullptr /*ipaddr*/);
       }
       
       //UDP Packet Received
-      {//Block scope: The destructor of CInterruptDisabler ensures interrupt is restored.
-        CInterruptDisabler interrupt;
+      while (!packetQueue.empty()) {
+        RxPacket& packet = packetQueue.front();   //Get a reference to the first element in the queue
         
-        interrupt.disable();  //Read note at udp_recv_callback()
-        while (!packetQueue.empty()) {
-          CRxPacket& packet = packetQueue.front();
-          rxremoteipaddr = packet.rxremoteipaddr;
-          rxremoteport = packet.rxremoteport;
-          rxdatalen = packet.rxpbuf->tot_len;
-          cyw43_arch_lwip_begin();
-          pbuf_copy_partial(packet.rxpbuf,rxbuffer,rxdatalen,0);
-          cyw43_arch_lwip_end();
-          packetQueue.pop();  //The destructor of CRxPacket frees pbuf buffer.
+        const size_t rxdatalen = packet.rxpbuf->tot_len;
+        const ip_addr_t rxremoteipaddr = packet.rxremoteipaddr;
+        const uint16_t rxremoteport = packet.rxremoteport;
+        cyw43_arch_lwip_begin();
+        pbuf_copy_partial(packet.rxpbuf.get(),rxbuffer,rxdatalen,0);
+        cyw43_arch_lwip_end();
+        packetQueue.pop();
         
-          interrupt.restore();
-          WatchdogUpdate();         
-          EvtUDPReceived(rxbuffer,rxdatalen,rxremoteipaddr,rxremoteport);
-          interrupt.disable();
-        }      
-        interrupt.restore();        
-      }
+        WatchdogUpdate();         
+        EvtUDPReceived(rxbuffer,rxdatalen,rxremoteipaddr,rxremoteport);
+      }      
       
       //Timer Timeout
       if (time_reached(timerTimeout)) {
@@ -250,11 +189,13 @@ void CUDPTask::Run(const char* ssid, const char* wpakey) {
       if (!completed && time_reached(watchdogTimeout)) {
         watchdogTimeout = TIMEOUT_NEVER;
         this->EvtWatchdogTimeout();
-        throw CUDPTask::ERR_WATCHDOG;
+        throw CUDPTask::ERR_WATCHDOG; //kill the task by throwing exception
       }
       
       //Abort Request
-      if (CUDPTask::abortRequested) CUDPTask::Abort(this);
+      if (CUDPTask::abortRequested) {
+        CUDPTask::Abort(this);
+      }
       
       if (!completed) {
         cyw43_arch_wait_for_work_until(MIN3(nextRun,dnsTimeout,timerTimeout));
@@ -269,6 +210,7 @@ void CUDPTask::Run(const char* ssid, const char* wpakey) {
     //Make sure isRunning and runningObject is set to false and nullptr if any exception occurs
     CUDPTask::isRunning = false;
     CUDPTask::runningObject = nullptr;    
+    
     throw; 
   }
 }
@@ -417,23 +359,23 @@ const char* CUDPTask::GetErrorCodeMessage(const int error){
 //Copy it to addr_out member of arg structure
 void dns_callback(const char *hostname, const ip_addr_t *ipaddr, void *arg){
   TRACE_PRINTF("dns_callback() invoked\n");
-  CUDPTask* pTask = (CUDPTask*) arg;
+  CUDPTask* task = static_cast<CUDPTask*>(arg); 
   
   //Read note below.
-  if (CUDPTask::GetRunningObject()!=pTask || pTask==NULL) {
+  if (task==nullptr || CUDPTask::GetRunningObject()!=task) {
     WARN_PRINTF("dns_callback() arg NOT POINTING to current UDPTask object. Ignore it!\n");
     return;
   }
 
-  pTask->dnsCallbackInvoked = true;
-  if (ipaddr!=NULL) {
-    pTask->dns_error = DNSERR_NONE;
-    pTask->dns_result_ipaddr = *ipaddr;
+  task->dnsCallbackInvoked = true;
+  if (ipaddr!=nullptr) {
+    task->dns_error = DNSERR_NONE;
+    task->dns_result_ipaddr = *ipaddr;
   } else {
-    pTask->dns_error = DNSERR_INVALIDHOST;
+    task->dns_error = DNSERR_INVALIDHOST;
   }
 }
-//If we don't check pTask is point to Running Task, it causes problem with the following sequence.
+//If we don't check task is pointing to Running Task, it causes problem with the following sequence.
 //
 //1) To test DNS Failed scenario, the internet link of router is disconnected. 
 //2) Enable Network Time Sync
@@ -507,10 +449,9 @@ void CUDPTask::SendUDP(const uint8_t *payload,const uint16_t payloadlen, const u
 /////////////////////////////////////////////////////////////////////////////
 // UDP Received callback function
 //
-// pbuf, remote_addr and remote_port is copied to CRxPacket object and send
-// to Run() method via packetQueue
-// The CRxPacket object owns the pbuf buffer and is responsible to free the
-// buffer
+// pbuf, remote_addr and remote_port is sent to Run() method via packetQueue
+// The consumer of the packet is responsible to call pbuf_free() to free 
+// pbuf pointer.
 //
 // Note
 // 1) V1.1.9 tries to call EvtUDPReceived() method directly in this function
@@ -523,28 +464,33 @@ void CUDPTask::SendUDP(const uint8_t *payload,const uint16_t payloadlen, const u
 //    object. The workaround is to disable interrupts in CUDPTask::Run() when it 
 //    is accessing the packetQueue.
 //
-void udp_recv_callback(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf, const ip_addr_t *remote_addr, u16_t remote_port) {
+void udp_recv_callback(void *arg, struct udp_pcb *pcb, struct pbuf *_pbuf, const ip_addr_t *remote_addr, u16_t remote_port) {
   TRACE_PRINTF("udp_recv_callback invoked\n");
-  CUDPTask* pTask = (CUDPTask*) arg;  
+  assert(remote_addr!=nullptr);
+
+  //Don't proceed if _pbuf is null
+  if (_pbuf==nullptr) return;
   
-  //Don't proceed if pbuf is null
-  if (pbuf==nullptr) return;
+  //Put _pbuf to a unique_ptr object
+  unique_ptr_pbuf_t pbuf{_pbuf};
   
-  //make sure the callback is for this object
-  //see note at dns_callback()
-  if (pTask!=nullptr && CUDPTask::GetRunningObject()==pTask) {
-    if (pbuf->tot_len <= UDP_BUFFERSIZE) {
-      //Add the UDP to packetQueue
-      pTask->packetQueue.emplace(pbuf,*remote_addr,remote_port);
-      pbuf=nullptr;   //The RxPacket object owns pbuf now. Also, make sure pbuf is not freed by pbuf_free() below
-    } else {
-      ERROR_PRINTF("ERROR: udp_recv_callback() pbuf->tot_len > UDP_BUFFERSIZE\n");
-    }
-  } else {
+  //Make sure task is pointing to Running UDPTask object
+  auto task = static_cast<CUDPTask*>(arg); 
+  if (task==nullptr || CUDPTask::GetRunningObject()!=task) {
     WARN_PRINTF("udp_recv_callback() arg NOT POINTING to current UDPTask object. Ignore it!\n");
+    return;
   }
 
-  if (pbuf) pbuf_free(pbuf);
+  //Make sure rxbuffer in CUDPTask is big enough to store the packet payload
+  if (pbuf->tot_len > UDP_BUFFERSIZE) {
+    ERROR_PRINTF("ERROR: udp_recv_callback() pbuf->tot_len > UDP_BUFFERSIZE\n");
+    return;
+  }
+    
+  //If the queue is not full, add the UDP packet to packetQueue.
+  //else discard the packet
+  if (!task->packetQueue.full()) task->packetQueue.push(RxPacket(pbuf,*remote_addr,remote_port));
+  else WARN_PRINTF("udp_recv_callback() packetQueue full!\n");
 }
 
 
