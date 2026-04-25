@@ -119,6 +119,18 @@ double_ui64 fac, arg, result;
           DEBUG_PRINTF(" fac=%f\n",fac.d); \
           DEBUG_PRINTF(" result=%f\n",result.d);
 
+//
+//Detect machine endianess
+//
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#define LOW  0 
+#define HIGH 1  
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#define LOW  1
+#define HIGH 0
+#else 
+#error "unknown __BYTE_ORDER__"
+#endif
 
 /////////////////////////////////////////////////////////////
 // Convert FAC from source data buffer to double and store it
@@ -127,16 +139,6 @@ double_ui64 fac, arg, result;
 // Input: Pointer to source data buffer
 //
 static void LoadFAC(const uint8_t *src) {
-  #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-  const uint32_t LOW =  0; 
-  const uint32_t HIGH = 1;
-  #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-  const uint32_t LOW =  1;
-  const uint32_t HIGH = 0;  
-  #else 
-  #error "unknown __BYTE_ORDER__"
-  #endif
-  
   //
   //Convert FAC
   //
@@ -203,16 +205,6 @@ static void LoadFAC(const uint8_t *src) {
 // Input: Pointer to source data buffer
 //
 static void LoadARG(const uint8_t *src) {
-  #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-  const uint32_t LOW =  0; 
-  const uint32_t HIGH = 1;
-  #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-  const uint32_t LOW =  1;
-  const uint32_t HIGH = 0;  
-  #else 
-  #error "unknown __BYTE_ORDER__"
-  #endif
-  
   //
   //Convert ARG
   //
@@ -286,16 +278,6 @@ static void LoadFAC_ARG(const uint8_t *src) {
 // Input: Pointer to dest buffer
 //
 static void StoreResult(uint8_t *dest) {
-  #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-  const uint32_t LOW =  0; 
-  const uint32_t HIGH = 1;
-  #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-  const uint32_t LOW =  1;
-  const uint32_t HIGH = 0;  
-  #else 
-  #error "unknown __BYTE_ORDER__"
-  #endif  
-  
   //Clear Error Flag
   dest[RESERROR] = 0;
 
@@ -561,16 +543,14 @@ This number in MBF is
 
 81 C9 0F DA A2 00
 
-And Division by Zero error occurs if this number is put into TAN()
-on real Apple II.
+And Division by Zero error occurs if this number is put into TAN().
 
-If 81 C9 0F DA A1 00 is put into TAN() on Apple II, Division by 
-zero error also occurs. But if this number is put into tan() on 
-Pico, the result is
+If 81 C9 0F DA A1 00 is used, Division by zero error also occurs.
+But if this number is put into tan() on Pico, the result is
 
 1.899580e+09.
 
-If 81 C9 0F DA A0 00 is used on Apple II, there is no error.
+If 81 C9 0F DA A0 00 is used, there is no error.
 
 So, in order to have the same behaviour as real Apple II, this
 function returns DIV0ERROR when the absolute value of the result
