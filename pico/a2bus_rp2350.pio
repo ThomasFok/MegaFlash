@@ -17,6 +17,12 @@
 ;           not do that and it works without any problem. The IRQ workaround
 ;           also stall the CPU.
 ;
+; Ver 5.0 - When 6502 is reading address $C0C0 (status register), the request is not 
+;           forwarded to CPU. But when MegaFlash is running in Slinky emulation mode,
+;           CPU needs the request to process the mode switching sequence. It can
+;           be achieved by patching an instruction in the PIO program to NOP. When
+;           the mode is switched, the instruction is restored.
+;
 ; The usual implementation is that the PIO program informs the CPU when 6502 
 ; is reading from us. The CPU then sends the data to PIO program. The PIO program 
 ; outputs the data to 6502. But the CPU only has 450ns, which equals to 67 cycles
@@ -76,27 +82,23 @@
   ;
   ;6502 is writing to us
   ;
-  nop   [16]            ; Delay awhile before reading data from 6502 bus
+  nop   [18]            ; Delay awhile before reading data from 6502 bus
                         ; When 6502 is writing to Pico, the data bus 
                         ; is not valid when nDEVSEL is just activated. We need
                         ; to delay awhile to get valid data.
-                        ; Test shows that if the delay is 14, it starts to work.
-                        ; So, we set to 16 for additional margin.
+                        ; Test shows that if the delay is 15, it starts to work.
+                        ; So, we set to 18 for additional margin.
   
-  ;then, same implemntation as read cycle
+  ;then, fall-into normal
 
-  ;
-  ;6502 is reading from us
-  ;
-read_cycle:
-  mov isr, null [1]     ; Clear ISR. V4.1:Adding 1 delay improves compatibility with 74138 address decoder
- 
-  in pins, A2BUS_WIDTH  ; Read Apple Bus
+normal:	
+  mov isr,pins  				; Read Apple Bus
   push noblock          ; Don't use auto-push since auto-push is blocking
    
   ;
   ;Wait until current cycle ends
   ;      
+nopush:
   wait 0 gpio PHI0_GPIO  ;Doesn't work reliably without this instruction.
                          ;Scope shows that nDEVSEL goes HIGH and PHI0
                          ;goes LOW at the same time.
@@ -112,8 +114,17 @@ read_cycle:
   ;Delay awhile before wrapping to the begining
   ;In case there is bouncing or glitch at nDEVSEL, 
   ;the cycle will not be false triggered.
-
 .wrap
+
+  ;
+  ;6502 is reading from us
+  ;
+read_cycle:
+  mov osr,pins					 ; Read Apple Bus to OSR
+	out x,4                ; x=[A3:0]
+	jmp !x,nopush          ; jmp to no push if [A3:0]==0
+	                       ; !! Change this instruction to NOP for Slinky mode !!
+  jmp normal  
 
 ;/////////////////////////////////////////////////////////////////////
 ;
@@ -128,7 +139,8 @@ read_cycle:
 .side_set 1 opt
         
 .wrap_target
-  wait 0 gpio nDEVSEL_GPIO      ; wait unti nDEVSEL is activated
+  wait 0 gpio nDEVSEL_GPIO side 1  ; wait unti nDEVSEL is activated
+	                                 ; side 1 to set initial value of nPICOWR_GPIO to 1
   jmp PIN,read_cycle 
   jmp cycle_end
   
@@ -160,6 +172,9 @@ cycle_end:
 
 
 % c-sdk {
+//return the line number of the instruction needed to be patched to switch
+//beteen Slinky mode and native mode
+static inline uint get_patch_linenum() {return 9;}
 
 //
 // Set GPIO function to PIO and setup pull resistors

@@ -64,11 +64,10 @@ transfermode_t dataBufferTransferMode;  //Linear or Interleaved mode
 ////////////////////////////////////////////////////////////////////
 // Initialize Bus Loop data
 //
-//
-//This function is called when switching mode from Slinky to MegaFlash.
-//We want the switching to be as fast as possible. 
-//So, don't remove __no_inline_not_in_flash_func
-void __no_inline_not_in_flash_func(BusLoopDataInit)() { 
+void BusLoopDataInit() { 
+  //Switch PIO program from Slinky to Native mode
+  PioSwitchToNativeMode();
+
   parameterBufferIndex = 0;
   dataBufferIndex = 0;
   dataBufferTransferMode = DEFAULTTRANSFERMODE;

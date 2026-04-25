@@ -5,6 +5,11 @@
 ;
 ; Ver 3.2 - Support system clock >125MHz
 ;
+; Ver 5.0 - When 6502 is reading address $C0C0 (status register), the request is not 
+;           forwarded to CPU. But when MegaFlash is running in Slinky emulation mode,
+;           CPU needs the request to process the mode switching sequence. It can
+;           be achieved by patching an instruction in the PIO program to NOP. When
+;           the mode is switched, the instruction is restored.
 ;
 ; The usual implementation is that the PIO program informs the ARM CPU when 6502 
 ; access MegaFlash registers. If it is a read request, the ARM CPU then sends the
@@ -55,13 +60,11 @@
 ;
 
 
-
 .program a2bus
-
 .side_set 1 opt         ; sideset pin is picowr_n
-
     
   pull block side 1     ; Read State Machine ID (0-3) with RnW bit set from CPU
+								        ; side 1 to set initial value of nPICOWR_GPIO to 1
   mov y,osr             ; Then, copy it to y
 
 .wrap_target
@@ -78,15 +81,26 @@ loop:
   jmp PIN, loop         ; JMP Pin is nDEVSEL
 
 cycle_start:
-  mov isr, null [7]     ; Clear ISR and delay awhile before reading data from 6502
-  nop           [7]     ; Don't remove this nop. It doesn't work without the delay
-                        ; since the data bus is not yet valid when nDEVSEL is asserted
-  in pins, A2BUS_WIDTH  ; Read Apple Bus
-  push noblock          ; Send to ARM CPU. Don't use auto-push since auto-push is blocking
-  
+  ;Delay is needed because the data bus is not yet valid when nDEVSEL is just asserted
+  mov isr,x     [7]     ; Move regvalue to isr          (regval in ISR)
+                          
+  ;Check if Addr=0 and RnW=1
+  mov osr, pins [3]     ; Read Apple bus to OSR
+  out x,4               ; x=[A3:0]
+  jmp x--,normal        ; jmp to normal if [A3:0]!=0
+  out x,1               ; x=RnW
+  jmp !x,normal         ; jmp to normal if RnW==0 (Writing to us)
+  jmp nopush            ; Do not inform CPU if reading address 0
+                        ; !! Change this instruction to NOP for Slinky mode !!
+normal:
+  mov x,isr             ; Move regvalue to x            (regval in x)
+  mov isr,pins          ; Read Apple bus to ISR
+  push noblock 
+  mov isr,x             ; Move regval to ISR            (regval in ISR)
+
+nopush: 
   ;Is 6502 reading from this State Machine?
   ;Check if [A3:A2]==Our State Machine ID and RnW==1
-  mov isr,x             ; move regval to ISR            (regval in ISR)
   mov osr, pins         ; Read Apple Bus to OSR
   out null, 2           ; Discard A1-0
   out x, 3              ; x=[RnW,A3,A2]
@@ -96,11 +110,11 @@ cycle_start:
   ;Read cycle
   ;Pico -> 6502
   
-  ;Read Address
+  ;Read Address [A1:0] to x
   mov osr, pins         ; Read Apple Bus to OSR          
   out x, 2              ; x=[A1:0]
 
-  ; Make a copy of regval to osr. The copy in osr will be destroyed
+  ; Make a temporary copy of regval to osr. The copy in osr will be destroyed
   mov osr, isr      
   
   ; Select the byte based on x which is [A1:0]
@@ -110,9 +124,9 @@ byte_select:
   jmp x--, byte_select  ; jmp if x!=0, prior to decrement
   
   ; Switch Pin to output
-  mov osr, ~NULL  
+  mov osr, ~null  
   out pindirs, 8 side 0 ;Switch pindir to output, side 0 to switch transeiver directon
-  ;Timing: Max 39 cycles or 312ns @125MHz from nDEVSEL is activated.
+  ;Timing: Max 40 cycles or 320ns @125MHz from nDEVSEL is activated.
   
 cycle_end:
   ; Wait until Phi0 goes low and switch pin direction to input
@@ -124,13 +138,17 @@ cycle_end:
   wait 1 gpio nDEVSEL_GPIO [7]
   ;Delay awhile before wrapping to the begining
   ;In case there is bouncing or glitch at nDEVSEL, 
-	;the cycle will not be false triggered.
-	
+  ;the cycle will not be false triggered.
+        
 .wrap
 
 
 
 % c-sdk {
+//return the line number of the instruction needed to be patched to switch
+//beteen Slinky mode and native mode
+static inline uint get_patch_linenum() {return 12;}
+
 static void a2bus_program_init(const PIO pio,const uint sm,const uint offset,const uint sys_clk_hz) {
   //setup wrap target and return the state machine config struct
   pio_sm_config c = a2bus_program_get_default_config(offset);

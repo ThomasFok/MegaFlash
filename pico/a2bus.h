@@ -14,11 +14,14 @@
 #define SM_A2BUS    1
 #endif
 
+#define PIO_A2BUS pio0
+
 
 void InitPIO();
+void PioSwitchToNativeMode();
 
 static inline uint32_t GetAppleBusBlocking() {
-  return pio_sm_get_blocking(pio0, SM_LISTENER);
+  return pio_sm_get_blocking(PIO_A2BUS, SM_LISTENER);
 }
 
 //Update MegaFlash Registers
@@ -27,9 +30,9 @@ static inline uint32_t GetAppleBusBlocking() {
 //       value - MegaFlash Registers value
 static inline void UpdateMegaFlashRegisters(const uint32_t chunk,const uint32_t value) {
 #ifdef PICO_RP2040
-  pio_sm_put(pio0, chunk, value);
+  pio_sm_put(PIO_A2BUS, chunk, value);
 #else 
-  pio0->rxf_putget[SM_A2BUS][chunk]= value;
+  PIO_A2BUS->rxf_putget[SM_A2BUS][chunk]= value;
 #endif
 }
 
