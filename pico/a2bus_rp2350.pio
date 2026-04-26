@@ -91,8 +91,8 @@
   
   ;then, fall-into normal
 
-normal:	
-  mov isr,pins  				; Read Apple Bus
+normal: 
+  mov isr,pins          ; Read Apple Bus
   push noblock          ; Don't use auto-push since auto-push is blocking
    
   ;
@@ -120,10 +120,10 @@ nopush:
   ;6502 is reading from us
   ;
 read_cycle:
-  mov osr,pins					 ; Read Apple Bus to OSR
-	out x,4                ; x=[A3:0]
-	jmp !x,nopush          ; jmp to no push if [A3:0]==0
-	                       ; !! Change this instruction to NOP for Slinky mode !!
+  mov osr,pins           ; Read Apple Bus to OSR
+  out x,4                ; x=[A3:0]
+  jmp !x,nopush          ; jmp to no push if [A3:0]==0
+                         ; !! Change this instruction to NOP for Slinky mode !!
   jmp normal  
 
 ;/////////////////////////////////////////////////////////////////////
@@ -140,7 +140,7 @@ read_cycle:
         
 .wrap_target
   wait 0 gpio nDEVSEL_GPIO side 1  ; wait unti nDEVSEL is activated
-	                                 ; side 1 to set initial value of nPICOWR_GPIO to 1
+                                   ; side 1 to set initial value of nPICOWR_GPIO to 1
   jmp PIN,read_cycle 
   jmp cycle_end
   

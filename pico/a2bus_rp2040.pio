@@ -64,7 +64,7 @@
 .side_set 1 opt         ; sideset pin is picowr_n
     
   pull block side 1     ; Read State Machine ID (0-3) with RnW bit set from CPU
-								        ; side 1 to set initial value of nPICOWR_GPIO to 1
+                        ; side 1 to set initial value of nPICOWR_GPIO to 1
   mov y,osr             ; Then, copy it to y
 
 .wrap_target
