@@ -1,6 +1,9 @@
 Version 1.1.11
 Pico Firmware
+- Compiled with C17 and C++17 standard
 - Support Alliance AS25F3512MQ flash chip
+- When 6502 reads status register ($C0C0), the request is not forwarded to Pico CPU.
+- Bug fix: TFTP failed to restart when blksize option from server is invalid
 
 Apple Firmware
 - No changes (V1.0.1)

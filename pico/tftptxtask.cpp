@@ -130,14 +130,17 @@ void CTFTPTXTask::EvtUDPReceived(const uint8_t* payload,uint16_t payloadlen,ip_a
 }
 
 
-////////////////////////////////////////////////////////////
-// Process OACK Packet
-//
-// Parse the option-value pair from the payload
-// then call the corresponding handler.
-// Handler may throw E_NEEDRESTART. In this case,
-// the data transfer is restarted.
-#define E_NEEDRESTART (0)
+/**
+ *  \brief Process OACK Packet
+ *  
+ *  \param [in] payload Pointer to Packet payload
+ *  \param [in] payloadlen Payload Len
+ *  \param [in] remote_port Remote Port
+ *  
+ *  \details Parse the option-value pair from the payload.
+ *  then call the corresponding handler.
+ *  Restart the transfer if blksize option from server is invalid.
+ */
 void CTFTPTXTask::ProcessOACKPacket(const uint8_t* payload,uint16_t payloadlen,uint16_t remote_port) {
   //Aceept OACKPacket once and before first data packet
   if (OACKReceived || blockSent!=0) return;
@@ -154,33 +157,41 @@ void CTFTPTXTask::ProcessOACKPacket(const uint8_t* payload,uint16_t payloadlen,u
   //Parse and handle the options
   size_t currentPos=2;    //Option-Value pair starts at offset 2
   const char *option,*value;
-  try {
-    while(ParseOptions(payload,payloadlen,&currentPos,&option,&value)) {
-      DEBUG_PRINTF("option: %s=%s\n",option,value);
-      if (0==strcmp(option,"blksize")) HandleOACK_blksize(value);
+  bool needRestart = false;
+  while(ParseOptions(payload,payloadlen,&currentPos,&option,&value)) {
+    DEBUG_PRINTF("option: %s=%s\n",option,value);
+    if (0==strcmp(option,"blksize")) {
+      if (!HandleOACK_blksize(value)) {
+        //Restart the transfer if HandleOACK_blksize() failed.
+        needRestart = true; 
+        break;
+      }
     }
-  } catch(int e) {
-    if (e==E_NEEDRESTART) {
-      //
-      // Restart the transfer
-      //
-      
-      //Send Error Packet to terminate the previous connection
-      BuildErrorPacket(TFTPERROR_DENIED_OPTIONS);   //error code #8
-      SendPacket();
-    
-      //rebind UDP local interface so that local_port is changed and the server should recognise it as a new connection
-      cyw43_arch_lwip_begin();
-      udp_bind(this->pcb, IP4_ADDR_ANY, 0 /*random port*/); //Bind local IF
-      cyw43_arch_lwip_end();  
-      OACKReceived = false; 
+  } //while
 
-      //Start again
-      this->CancelTimer();      //Cancel any pending timer event
-      this->StartTransfer();    //Send RRQ to start the transfer
-      return;
-    }
-    assert(0); //unknown exception. should not happen
+  if (needRestart) {
+    //
+    // Restart the transfer
+    //
+    
+    //Send Error Packet to terminate the previous connection
+    BuildErrorPacket(TFTPERROR_DENIED_OPTIONS);   //error code #8
+    SendPacket();
+
+    WARN_PRINTF("Unrecongised blksize. Restarting transfer without blksize option\n");
+    enable1kBlockSize = false;  //Turn off 1024 blksize option
+    OACKReceived = false; 
+    serverTIDAccepted = false;  
+    blockSent = 0;
+  
+    //rebind UDP local interface so that local_port is changed and the server should recognise it as a new connection
+    cyw43_arch_lwip_begin();
+    udp_bind(this->pcb, IP4_ADDR_ANY, 0 /*random port*/); //Bind local IF
+    cyw43_arch_lwip_end();  
+
+    //Start again
+    this->CancelTimer();      //Cancel any pending timer event
+    this->StartTransfer();    //Send RRQ to start the transfer
     return;
   }
   
@@ -189,29 +200,27 @@ void CTFTPTXTask::ProcessOACKPacket(const uint8_t* payload,uint16_t payloadlen,u
   SendDataPacket();
 }
 
-//////////////////////////////////////////////////////////
-// Handle blksize option acknowledgement from server
-//
-// throw E_NEEDRESTART if the blksize is not 512 or 1024
-//
-void CTFTPTXTask::HandleOACK_blksize(const char* value) {
-  const bool is1024 = (0==strcmp(value,"1024"));
-  const bool is512 = (0==strcmp(value,"512"));
-  
+
+/**
+ *  \brief Handle blksize option acknowledgement from server
+ *  
+ *  \param [in] value blksize option string
+ *  \return true if the blksize option is valid.
+ */
+bool CTFTPTXTask::HandleOACK_blksize(const char* value) {
   //Only 512 and 1024 are acceptable
-  if (is512 || is1024) {
-    if (is1024) {
-      INFO_PRINTF("Switching TFTP blockSize to 1024\n");
-      tftpBlockSize=1024;
-    }
+  if (0==strcmp(value,"1024")) {
+    INFO_PRINTF("Switching TFTP blockSize to 1024\n");
+    tftpBlockSize=1024;
+    return true;
+  } else if (0==strcmp(value,"512")){
+    return true;
   } else {
-    //Unrecognised blksize. 
+     //Unrecognised blksize. 
     //We don't expect it would happen since 1024 is a perfectly good
     //block size. 
     //Anyway, we try to restart the transfer without 1024 blksize option
-    WARN_PRINTF("Unrecongised blksize. Restarting transfer without blksize option\n");
-    enable1kBlockSize = false;  //Turn off 1024 blksize option
-    throw E_NEEDRESTART;
+    return false; 
   }
 }
 

@@ -27,15 +27,15 @@ protected:
   bool serverTIDAccepted;      //Server TID (remote_port) accepted
 
   //Event Handlers
-  void EvtDNSResult(const int dns_error, const ip_addr_t *ipaddr);
-  void EvtUDPReceived(const uint8_t* payload,uint16_t payloadlen,ip_addr_t remote_addr,uint16_t remote_port);
-  void EvtTimeout(uint32_t arg);
+  virtual void EvtDNSResult(const int dns_error, const ip_addr_t *ipaddr) override;
+  virtual void EvtUDPReceived(const uint8_t* payload,uint16_t payloadlen,ip_addr_t remote_addr,uint16_t remote_port) override;
+  virtual void EvtTimeout(uint32_t arg) override;
   
   void StartTransfer();  
   void SendDataPacket(); 
   void ProcessOACKPacket(const uint8_t* payload,uint16_t payloadlen,uint16_t remote_port);
   void ProcessACKPacket(const uint8_t* payload,uint16_t payloadlen,uint16_t remote_port);
-  void HandleOACK_blksize(const char* value);
+  bool HandleOACK_blksize(const char* value);
   
   uint32_t BuildDataPacket(uint8_t *destBuffer,uint16_t tftpBlock, uint32_t blockNum);
 };
