@@ -5,38 +5,38 @@
 extern "C" volatile tftp_state_t tftp_state;
 
 
-CTFTPTask::CTFTPTask(const uint32_t unitNum,const char* hostname,const char* filename,const bool enable1kBlockSize,const uint32_t tftpTimeout,
-                     const uint32_t tftpMaxAttempt,const uint16_t tftpServerPort):CUDPTask() {
-  assert(unitNum!=0);
+CTFTPTask::CTFTPTask(const uint32_t unit_num,const char* hostname,const char* filename,const bool enable_1k_block_size,const uint32_t tftp_timeout,
+                     const uint32_t tftp_max_attempt,const uint16_t tftp_server_port):CUDPTask() {
+  assert(unit_num!=0);
   assert(hostname!=nullptr);
   assert(filename!=nullptr);
   assert(strlen(filename)<=255);
-  UpdateTFTPState();
-  this->unitNum = unitNum;
-  this->hostname = hostname;
-  this->filename = filename;
-  this->enable1kBlockSize = enable1kBlockSize;
+  InitTFTPState();
+  this->unit_num_ = unit_num;
+  this->hostname_ = hostname;
+  this->filename_ = filename;
+  this->enable_1k_block_size_ = enable_1k_block_size;
   
-  this->tftpTimeout = CLAMP(tftpTimeout,TFTP_TIMEOUT_MIN,TFTP_TIMEOUT_MAX);
-  this->tftpMaxAttempt = CLAMP(tftpMaxAttempt,TFTP_MAXATTEMPT_MIN,TFTP_MAXATTEMPT_MAX);
+  this->tftp_timeout_ = CLAMP(tftp_timeout,TFTP_TIMEOUT_MIN,TFTP_TIMEOUT_MAX);
+  this->tftp_max_attempt_ = CLAMP(tftp_max_attempt,TFTP_MAXATTEMPT_MIN,TFTP_MAXATTEMPT_MAX);
   
-  this->tftpServerPort = tftpServerPort;
-  this->tftpTimeoutLastACK = MAX(tftpTimeout,TFTP_TIMEOUT_LASTACK_MIN);
-  this->server_port = 0;
+  this->tftp_server_port_ = tftp_server_port;
+  this->tftp_timeout_laskack_ = MAX(tftp_timeout,TFTP_TIMEOUT_LASTACK_MIN);
+  this->server_port_ = 0;
   
-  this->attempt = 0;
-  this->txbuffer = new uint8_t[TXBUFFERSIZE];
-  this->txpacketlen = 0;
+  this->attempt_ = 0;
+  this->txbuffer_ = new uint8_t[TXBUFFERSIZE];
+  this->txpacketlen_ = 0;
 }
 
 CTFTPTask::~CTFTPTask() {
-  delete[] this->txbuffer;
+  delete[] this->txbuffer_;
 }
 
 ////////////////////////////////////////////////////////////////////
 // Initialize TFTP State
 //
-void CTFTPTask::UpdateTFTPState() {
+void CTFTPTask::InitTFTPState() {
   tftp_critical_section_enter_blocking();
   tftp_state.status = TFTPSTATUS_IDLE;
   tftp_state.blockTransferred  = TFTPSTATE_INVALIDBLOCKCOUNT;
@@ -67,43 +67,43 @@ const char* CTFTPTask::GetErrorMessage(const int errorcode) {
 }
 
 ////////////////////////////////////////////////////////////////////
-// Build an Ack Packet in txbuffer
+// Build an Ack Packet in txbuffer_
 //
 // Input: block - Block Number
 //
 void CTFTPTask::BuildAckPacket(const uint16_t block) {
-  txbuffer[0] =0;
-  txbuffer[1] = OP_ACK;
-  txbuffer[3] = (uint8_t) block;      //low byte
-  txbuffer[2] = (uint8_t)(block>>8);  //high byte
-  txpacketlen = 4;
+  txbuffer_[0] =0;
+  txbuffer_[1] = OP_ACK;
+  txbuffer_[3] = (uint8_t) block;      //low byte
+  txbuffer_[2] = (uint8_t)(block>>8);  //high byte
+  txpacketlen_ = 4;
 }
 
 
   
 ////////////////////////////////////////////////////////////////////
-// Build an Error Packet in txbuffer
+// Build an Error Packet in txbuffer_
 //
 // Input: errorcode - TFTP Error Code
 //  
 void CTFTPTask::BuildErrorPacket(const int errorcode) {
   //TFTP Error code is 0-8
   assert(errorcode>=0 && errorcode<=8);
-  txbuffer[0] =0;
-  txbuffer[1] = OP_ERROR;
-  txbuffer[3] = (uint8_t) errorcode;      //low byte
-  txbuffer[2] = 0;                        //high byte
+  txbuffer_[0] =0;
+  txbuffer_[1] = OP_ERROR;
+  txbuffer_[3] = (uint8_t) errorcode;      //low byte
+  txbuffer_[2] = 0;                        //high byte
   
   //error message
   const char* errormsg = GetErrorMessage(errorcode);
-  strcpy((char*)(txbuffer+4),errormsg);
-  txpacketlen = 4 + strlen(errormsg) + 1;
+  strcpy((char*)(txbuffer_+4),errormsg);
+  txpacketlen_ = 4 + strlen(errormsg) + 1;
 }  
 
 
 
 ////////////////////////////////////////////////////////////////////
-// Build a RRQ(Read Request) or WRQ(Write Request) Packet in txbuffer
+// Build a RRQ(Read Request) or WRQ(Write Request) Packet in txbuffer_
 //
 // Input: type - Packet Type (OP_RRQ or OPWRQ)
 //
@@ -113,17 +113,17 @@ void CTFTPTask::BuildErrorPacket(const int errorcode) {
 //  
 void CTFTPTask::BuildRQPacket(const uint8_t type) {
   assert(type==OP_RRQ || type==OP_WRQ);
-  txbuffer[0] = 0;
-  txbuffer[1] = type;
-  txpacketlen = 2;
+  txbuffer_[0] = 0;
+  txbuffer_[1] = type;
+  txpacketlen_ = 2;
   
   //filename
-  strcpy((char*)(txbuffer+2),this->filename);
-  txpacketlen += strlen(this->filename)+1; //+1 for NULL char
+  strcpy((char*)(txbuffer_+2),this->filename_);
+  txpacketlen_ += strlen(this->filename_)+1; //+1 for NULL char
   
   //mode
-  strcpy((char*)(txbuffer+txpacketlen),"octet");
-  txpacketlen += 5+1; //len of "octet" and NULL char
+  strcpy((char*)(txbuffer_+txpacketlen_),"octet");
+  txpacketlen_ += 5+1; //len of "octet" and NULL char
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -133,12 +133,12 @@ void CTFTPTask::BuildRQPacket(const uint8_t type) {
 //        value  - value string in ASCII
 //  
 void CTFTPTask::AddOption(const char* option, const char* value) {
-  strcpy((char*)(txbuffer+txpacketlen),option);
-  txpacketlen += strlen(option)+1; //+1 for NULL char
+  strcpy((char*)(txbuffer_+txpacketlen_),option);
+  txpacketlen_ += strlen(option)+1; //+1 for NULL char
   
-  strcpy((char*)(txbuffer+txpacketlen),value);
-  txpacketlen += strlen(value)+1; //+1 for NULL char
-  assert(txpacketlen<=TXBUFFERSIZE);
+  strcpy((char*)(txbuffer_+txpacketlen_),value);
+  txpacketlen_ += strlen(value)+1; //+1 for NULL char
+  assert(txpacketlen_<=TXBUFFERSIZE);
 }
 
 
@@ -165,10 +165,10 @@ void CTFTPTask::AddOption(const char* option, const uint32_t value) {
 // 
 void CTFTPTask::AddBinaryData(const uint8_t *data,const uint32_t len) {
   if (len!=0) {
-    memcpy(txbuffer+txpacketlen, data, len);
-    txpacketlen += len;
+    memcpy(txbuffer_+txpacketlen_, data, len);
+    txpacketlen_ += len;
   }
-  assert(txpacketlen<=TXBUFFERSIZE);
+  assert(txpacketlen_<=TXBUFFERSIZE);
 }
 
 //
@@ -177,8 +177,8 @@ void CTFTPTask::AddBinaryData(const uint8_t *data,const uint32_t len) {
 //  DEBUG_PRINTF("Adding options\n");
 //  AddOption("blksize","1024");
 //  AddOption("tsize","65536");
-//  strcpy((char*)txbuffer+txpacketlen,"test");
-//  txpacketlen+=5;
+//  strcpy((char*)txbuffer_+txpacketlen_,"test");
+//  txpacketlen_+=5;
 //
 
 ////////////////////////////////////////////////////////////////////
@@ -195,7 +195,7 @@ void CTFTPTask::AddBinaryData(const uint8_t *data,const uint32_t len) {
 //Example:
 //  size_t currentPos=0;  //Start scanning at offset 0
 //  const char* option,*value;
-//  while(ParseOption(txbuffer,len,&currentPos,&option,&value)) {
+//  while(ParseOption(txbuffer_,len,&currentPos,&option,&value)) {
 //    DEBUG_PRINTF("Option: %s=%s\n",option,value);
 //  }
 //
@@ -237,8 +237,8 @@ void CTFTPTask::EvtStart() {
   CUDPTask::EvtStart();
   
   //Start the process by looking up server IP
-  DEBUG_PRINTF("DNSLookup: hostname=%s\n",this->hostname);
-  DNSLookup(this->hostname); 
+  DEBUG_PRINTF("DNSLookup: hostname_=%s\n",this->hostname_);
+  DNSLookup(this->hostname_); 
 }
 
 
@@ -247,12 +247,12 @@ void CTFTPTask::EvtStart() {
 // This method is used by both CTFTPRXTask and CTFTPTXTask
 //
 void CTFTPTask::Retry() { 
-  //Retry if number of attempt < tftpMaxAttempt
-  if (attempt<tftpMaxAttempt) {
+  //Retry if number of attempt_ < tftp_max_attempt_
+  if (attempt_<tftp_max_attempt_) {
     //Send Last Packet Again
     SendPacket();
-    SetTimer(tftpTimeout);    
-    ++attempt;
+    SetTimer(tftp_timeout_);    
+    ++attempt_;
     INFO_PRINTF("#"); 
     tftp_critical_section_enter_blocking();
     ++tftp_state.retries;
@@ -283,8 +283,8 @@ void CTFTPTask::ProcessErrorPacket(const uint8_t* payload,uint16_t payloadlen) {
   const uint16_t errorcode = payload[2]*256+payload[3];
 
   //TFTP protocol defines errorcode 0-8
-  //We found that TFTP64 by Ph. Jounin server send errorcode 99
-  //when user request to stop the transfer. So, we need to handle it.
+  //We found that TFTP64 server by Ph. Jounin sends errorcode 99
+  //when user requests to stop the transfer. So, we need to handle it.
   if (errorcode == 99) {
     this->Complete();    
     tftp_critical_section_enter_blocking();
@@ -314,3 +314,33 @@ void CTFTPTask::ProcessErrorPacket(const uint8_t* payload,uint16_t payloadlen) {
   ERROR_PRINTF("tftp_state.error = %d\n",tftp_error);  
   return;
 }
+
+
+
+
+/**
+ *  \brief Handle blksize option acknowledgement from server
+ *  
+ *  \param [in] value blksize option string
+ *  \return true if the blksize option is valid.
+ *  
+ *  \details This method is common to both CTFTPRXTask and CTFTPTXTask
+ */
+bool CTFTPTask::HandleOACK_blksize(const char* value) {
+  //Only 512 and 1024 are acceptable
+  if (0==strcmp(value,"1024")) {
+    INFO_PRINTF("Switching TFTP blockSize to 1024\n");
+    tftp_block_size_=1024;
+    return true;
+  } else if (0==strcmp(value,"512")){
+    assert(tftp_block_size_==512);
+    return true;
+  } else {
+    //Unrecognised blksize. 
+    //We don't expect it would happen since 1024 is a perfectly good
+    //block size. 
+    //Anyway, we try to restart the transfer without 1024 blksize option
+    return false; 
+  }
+}
+

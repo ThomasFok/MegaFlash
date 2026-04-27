@@ -19,18 +19,18 @@ extern "C" volatile tftp_state_t tftp_state;
 //////////////////////////////////////////////////////////
 // Constructor
 // 
-CTFTPRXTask::CTFTPRXTask(const uint32_t unitNum,const char* hostname,const char* filename,const bool enable1kBlockSize,const uint32_t tftpTimeout,
-                         const uint32_t tftpMaxAttempt,const uint16_t tftpServerPort)
-                         :CTFTPTask(unitNum, hostname, filename,enable1kBlockSize,tftpTimeout,tftpMaxAttempt,tftpServerPort)
-                         ,imageWriter(filename) {
+CTFTPRXTask::CTFTPRXTask(const uint32_t unit_num,const char* hostname,const char* filename,const bool enable_1k_block_size,const uint32_t tftp_timeout,
+                         const uint32_t tftp_max_attempt,const uint16_t tftp_server_port)
+                         :CTFTPTask(unit_num, hostname, filename,enable_1k_block_size,tftp_timeout,tftp_max_attempt,tftp_server_port)
+                         ,image_writer_(filename) {
   
-  OACKReceived = false;
-  hasCompleted = false;
-  serverTIDAccepted = false;
-  blockReceived = 0;
-  tftpBlockSize = 512;
-  blockCapacity = GetBlockCountActual(unitNum);
-  DEBUG_PRINTF("blockCapacity = %d\n",blockCapacity);
+  oack_received_ = false;
+  has_completed_ = false;
+  server_tid_accepted_ = false;
+  block_received_ = 0;
+  tftp_block_size_ = 512;
+  block_capacity_ = GetBlockCountActual(unit_num);
+  DEBUG_PRINTF("block_capacity_ = %d\n",block_capacity_);
 }
 
 //////////////////////////////////////////////////////////
@@ -62,18 +62,18 @@ void CTFTPRXTask::EvtDNSResult(const int dns_error, const ip_addr_t *ipaddr) {
 // Start File Transfer by sending RRQ packet
 //
 void CTFTPRXTask::StartTransfer() {
-  this->server_port = tftpServerPort; //Reset server_port TFTP Server listening port
+  this->server_port_ = tftp_server_port_; //Reset server_port TFTP Server listening port
   BuildReadRequestPacket();
   
-  if (enable1kBlockSize) {
+  if (enable_1k_block_size_) {
     AddOption("blksize","1024");
     AddOption("tsize","0");   //Request server to report file size
   }
   
   SendPacket();
-  SetTimer(tftpTimeout);
-  attempt = 1; //First Attempt
-  expectedBlock = 1;  //Expecting to receive block #1
+  SetTimer(tftp_timeout_);
+  attempt_ = 1; //First Attempt
+  expected_block_ = 1;  //Expecting to receive block #1
   
   tftp_critical_section_enter_blocking();
   tftp_state.status = TFTPSTATUS_REQUEST;
@@ -116,8 +116,8 @@ void CTFTPRXTask::EvtUDPReceived(const uint8_t* payload,uint16_t payloadlen,ip_a
   
   //Check remote port
   //If server TID is not accepted, accept any remote port
-  //Otherwise, accept remote_port == server_port only
-  if (serverTIDAccepted && remote_port!=server_port) {
+  //Otherwise, accept remote_port == server_port_ only
+  if (server_tid_accepted_ && remote_port!=server_port_) {
     TRACE_PRINTF("Discard Packet: Invalid remote port\n");
     return;
   }
@@ -135,58 +135,70 @@ void CTFTPRXTask::EvtUDPReceived(const uint8_t* payload,uint16_t payloadlen,ip_a
   //discard other opcode packets
 }
 
-////////////////////////////////////////////////////////////
-// Process OACK Packet
-//
-// Parse the option-value pair from the payload
-// then call the corresponding handler.
-// Handler may throw E_NEEDRESTART. In this case,
-// the data transfer is restarted.
-#define E_NEEDRESTART (0)
+/**
+ *  \brief Process OACK Packet
+ *  
+ *  \param [in] payload Pointer to Packet payload
+ *  \param [in] payloadlen Payload Len
+ *  \param [in] remote_port Remote Port
+ *  
+ *  \details Parse the option-value pair from the payload.
+ *  then call the corresponding handler.
+ *  Restart the transfer if blksize option from server is invalid.
+ */
 void CTFTPRXTask::ProcessOACKPacket(const uint8_t* payload,uint16_t payloadlen,uint16_t remote_port) {
   //Aceept OACKPacket once and before first data packet
-  if (OACKReceived || blockReceived!=0) return;
-  OACKReceived = true;
+  if (oack_received_ || block_received_!=0) return;
+  oack_received_ = true;
   DEBUG_PRINTF("OACK Received\n");
   
   //Accept remote_port (TID) 
-  if (!serverTIDAccepted){
-    server_port = remote_port;
-    serverTIDAccepted = true;
-    DEBUG_PRINTF("Setting server_port to %d\n",remote_port);    
+  if (!server_tid_accepted_){
+    server_port_ = remote_port;
+    server_tid_accepted_ = true;
+    DEBUG_PRINTF("Setting server_port_ to %d\n",remote_port);    
   }
   
   //Parse and handle the options
-  size_t currentPos=2;    //Option-Value pair starts at offset 2
+  size_t current_pos=2;    //Option-Value pair starts at offset 2
   const char *option,*value;
-  try {
-    while(ParseOptions(payload,payloadlen,&currentPos,&option,&value)) {
-      DEBUG_PRINTF("option: %s=%s\n",option,value);
-      if (0==strcmp(option,"blksize")) HandleOACK_blksize(value);
-      else if (0==strcmp(option,"tsize")) HandleOACK_tsize(value);
+  bool need_restart = false;
+  while(ParseOptions(payload,payloadlen,&current_pos,&option,&value)) {
+    DEBUG_PRINTF("option: %s=%s\n",option,value);
+    if (0==strcmp(option,"tsize")) HandleOACK_tsize(value);
+    else if (0==strcmp(option,"blksize")) {
+      if (!HandleOACK_blksize(value)) {
+        //Restart the transfer if HandleOACK_blksize() failed.
+        need_restart = true; 
+        break;
+      }
     }
-  } catch(int e) {
-    if (e==E_NEEDRESTART) {
-      //
-      // Restart the transfer
-      //
-      
-      //Send Error Packet to terminate the previous connection
-      BuildErrorPacket(TFTPERROR_DENIED_OPTIONS);   //error code #8
-      SendPacket();
+  }//while
+  
+  if (need_restart) {
+    //
+    // Restart the transfer
+    //
     
-      //rebind UDP local interface so that local_port is changed and the server should recognise it as a new connection
-      cyw43_arch_lwip_begin();      
-      udp_bind(this->pcb, IP4_ADDR_ANY, 0 /*random port*/); //Bind local IF
-      cyw43_arch_lwip_end();        
-      OACKReceived = false; 
+    //Send Error Packet to terminate the previous connection
+    BuildErrorPacket(TFTPERROR_DENIED_OPTIONS);   //error code #8
+    SendPacket();
+    
+    WARN_PRINTF("Unrecongised blksize. Restarting transfer without blksize option\n");
+    enable_1k_block_size_ = false;  //Turn off 1024 blksize option
+    oack_received_ = false;   
+    server_tid_accepted_ = false;
+    block_received_ = 0;    
+    tftp_block_size_ = 512;    
+  
+    //rebind UDP local interface so that local_port is changed and the server should recognise it as a new connection
+    cyw43_arch_lwip_begin();      
+    udp_bind(this->pcb, IP4_ADDR_ANY, 0 /*random port*/); //Bind local IF
+    cyw43_arch_lwip_end();        
 
-      //Start again
-      this->CancelTimer();      //Cancel any pending timer event
-      this->StartTransfer();    //Send RRQ to start the transfer
-      return;
-    }
-    assert(0); //unknown exception. should not happen
+    //Start again
+    this->CancelTimer();      //Cancel any pending timer event
+    this->StartTransfer();    //Send RRQ to start the transfer
     return;
   }
   
@@ -195,35 +207,10 @@ void CTFTPRXTask::ProcessOACKPacket(const uint8_t* payload,uint16_t payloadlen,u
   DEBUG_PRINTF("Sending Ack of the OACK packet\n");
   BuildAckPacket(0); //Block Number 0
   SendPacket();
-  SetTimer(tftpTimeout);
-  attempt = 1; //First Attempt    
+  SetTimer(tftp_timeout_);
+  attempt_ = 1; //First Attempt    
 }
 
-//////////////////////////////////////////////////////////
-// Handle blksize option acknowledgement from server
-//
-// throw E_NEEDRESTART if the blksize is not 512 or 1024
-//
-void CTFTPRXTask::HandleOACK_blksize(const char* value) {
-  const bool is1024 = (0==strcmp(value,"1024"));
-  const bool is512 = (0==strcmp(value,"512"));
-  
-  //Only 512 and 1024 are acceptable
-  if (is512 || is1024) {
-    if (is1024) {
-      INFO_PRINTF("Switching TFTP blockSize to 1024\n");
-      tftpBlockSize=1024;
-    }
-  } else {
-    //Unrecognised blksize. 
-    //We don't expect it would happen since 1024 is a perfectly good
-    //block size. 
-    //Anyway, we try to restart the transfer without 1024 blksize option
-    WARN_PRINTF("Unrecongised blksize. Restarting transfer without blksize option\n");
-    enable1kBlockSize = false;  //Turn off 1024 blksize option
-    throw E_NEEDRESTART;
-  }
-}
 
 //////////////////////////////////////////////////////////
 // Handle tsize option acknowledgement from server
@@ -253,9 +240,9 @@ void CTFTPRXTask::HandleOACK_tsize(const char* value) {
 // If it is valid, return true;
 // If it is not, set error and terminate the process.
 //
-bool CTFTPRXTask::ValidateBlockNumber(const uint32_t blockNum) {
+bool CTFTPRXTask::ValidateBlockNumber(const uint32_t block_num) {
   //Check if number of blocks received exceeds the capacity of the unit
-  if (blockNum<blockCapacity) 
+  if (block_num<block_capacity_) 
     return true;
   else { 
     //Set error and stop immedately
@@ -278,11 +265,11 @@ bool CTFTPRXTask::ValidateBlockNumber(const uint32_t blockNum) {
 //
 void CTFTPRXTask::ProcessDataPacket(const uint8_t* payload,uint16_t payloadlen,uint16_t remote_port) {
   const uint16_t block = payload[2]*256+payload[3];
-  const uint16_t dataSize = payloadlen-4;
+  const uint16_t data_size = payloadlen-4;
 
   //Validate Block Number
-  if (block != expectedBlock) {
-    if (block==expectedBlock-1) {
+  if (block != expected_block_) {
+    if (block==expected_block_-1) {
       //Last Data Block is received. It means Ack is lost. 
       //Retry without any delay.
       this->Retry(); 
@@ -299,7 +286,7 @@ void CTFTPRXTask::ProcessDataPacket(const uint8_t* payload,uint16_t payloadlen,u
   //  
 
   //First data packet?
-  if (blockReceived==0) { 
+  if (block_received_==0) { 
     DEBUG_PRINTF("First data packet received\n");
     tftp_critical_section_enter_blocking();
     tftp_state.status = TFTPSTATUS_TRANSFER;
@@ -307,43 +294,42 @@ void CTFTPRXTask::ProcessDataPacket(const uint8_t* payload,uint16_t payloadlen,u
     INFO_PRINTF("tftp_state.status = TFTPSTATUS_TRANSFER\n");
     
     //Accept remote_port (TID)
-    if (!serverTIDAccepted){
-      server_port = remote_port;
-      serverTIDAccepted = true;
-      DEBUG_PRINTF("Setting server_port to %d\n",remote_port);    
+    if (!server_tid_accepted_){
+      server_port_ = remote_port;
+      server_tid_accepted_ = true;
+      DEBUG_PRINTF("Setting server_port_ to %d\n",remote_port);    
     }
   }
 
-  assert(tftpBlockSize==512 || tftpBlockSize==1024); //Assume tftpBlockSize is 512 or 1024 only  
-  //TFTP protocol says if the length of data (dataSize) is < tftpBlockSize, it is
+  assert(tftp_block_size_==512 || tftp_block_size_==1024); //Assume tftp_block_size_ is 512 or 1024 only  
+  //TFTP protocol says if the length of data (data_size) is < tftp_block_size_, it is
   //the last data packet. Since the size of a disk image should be
-  //multiple of 512, we expect the dataSize of last data packet is 0 or 512(if tftpBlockSize==1024).
+  //multiple of 512, we expect the data_size of last data packet is 0 or 512(if tftp_block_size_==1024).
   
   //=true if this Data Packet signals end of transmission but 
   //it also carry 512 bytes of data
-  const bool eof_with512payload = (tftpBlockSize==1024 && dataSize==512);
+  const bool eof_with512payload = (tftp_block_size_==1024 && data_size==512);
   
-  
-  //If dataSize == 0 or eof_with512payload, it means end of transmission without any issues
-  if (dataSize == 0 || eof_with512payload) {
+  //If data_size == 0 or eof_with512payload, it means end of transmission without any issues
+  if (data_size == 0 || eof_with512payload) {
     BuildAckPacket(block);  //Send Last Ack.
     SendPacket();
-    SetTimer(tftpTimeoutLastACK);
-    hasCompleted = true;
+    SetTimer(tftp_timeout_laskack_);
+    has_completed_ = true;
     
     if (eof_with512payload) {
       #if WRITETOFLASH
-      if (!ValidateBlockNumber(blockReceived)) return;
-      const bool success = imageWriter.WriteBlock(unitNum, blockReceived, payload+4);  //Actual Data starts at offset 4
+      if (!ValidateBlockNumber(block_received_)) return;
+      const bool success = image_writer_.WriteBlock(unit_num_, block_received_, payload+4);  //Actual Data starts at offset 4
       if (!success) throw CTFTPTask::ERR_RWFAILED;
       #endif
-      ++blockReceived;    
+      ++block_received_;    
     }
     
     tftp_critical_section_enter_blocking();
     tftp_state.status = TFTPSTATUS_COMPLETING;
     tftp_state.error = TFTPERROR_NOERR;
-    tftp_state.blockTransferred = blockReceived;
+    tftp_state.blockTransferred = block_received_;
     tftp_critical_section_exit();
     INFO_PRINTF("\ntftp_state.status = TFTPSTATUS_COMPLETING\n");
     return;    
@@ -360,16 +346,16 @@ void CTFTPRXTask::ProcessDataPacket(const uint8_t* payload,uint16_t payloadlen,u
   
   //Check if number of blocks received exceeds the capacity of the unit
   //If it is not valid, ValidateBlockNumber() sets error and terminate the process.
-  if (!ValidateBlockNumber(blockReceived)) return;
+  if (!ValidateBlockNumber(block_received_)) return;
   
-  //If dataSize is < tftpBlockSize, it signals end of transmission
+  //If data_size is < tftp_block_size_, it signals end of transmission
   //But the filesize is not multiple of 512
-  if (dataSize < tftpBlockSize && !eof_with512payload) {
+  if (data_size < tftp_block_size_ && !eof_with512payload) {
     BuildAckPacket(block);  //Send Last Ack.
     SendPacket();
-    SetTimer(tftpTimeoutLastACK);
-    attempt = 1;  //Reset attempt to 1 since we have a good data block
-    hasCompleted = true;  //To end the transmission after timer timeout
+    SetTimer(tftp_timeout_laskack_);
+    attempt_ = 1;  //Reset attempt to 1 since we have a good data block
+    has_completed_ = true;  //To end the transmission after timer timeout
     tftp_critical_section_enter_blocking();
     tftp_state.status = TFTPSTATUS_COMPLETING;
     tftp_state.error = TFTPERROR_ODDSIZE;
@@ -379,35 +365,35 @@ void CTFTPRXTask::ProcessDataPacket(const uint8_t* payload,uint16_t payloadlen,u
     return;
   }
   
-  //If dataSize = tftpBlockSize, it is a normal and good data block
+  //If data_size = tftp_block_size_, it is a normal and good data block
   //write it to flash
-  if (dataSize == tftpBlockSize) {
+  if (data_size == tftp_block_size_) {
     //Send ACK
     BuildAckPacket(block);
     SendPacket();
-    SetTimer(tftpTimeout);    
-    attempt=1;    //Reset attempt to 1 since we have a good data block
-    ++expectedBlock;
+    SetTimer(tftp_timeout_);    
+    attempt_=1;    //Reset attempt to 1 since we have a good data block
+    ++expected_block_;
     
     #if WRITETOFLASH
-    //blockReceived has been validated above
-    const bool success = imageWriter.WriteBlock(unitNum, blockReceived, payload+4);  //Actual Data starts at offset 4
+    //block_received_ has been validated above
+    const bool success = image_writer_.WriteBlock(unit_num_, block_received_, payload+4);  //Actual Data starts at offset 4
     if (!success) throw CTFTPTask::ERR_RWFAILED;
     #endif
-    ++blockReceived;    
+    ++block_received_;    
     tftp_critical_section_enter_blocking();
-    tftp_state.blockTransferred = blockReceived;
+    tftp_state.blockTransferred = block_received_;
     tftp_critical_section_exit();    
     
-    if (dataSize==1024) {
+    if (data_size==1024) {
       #if WRITETOFLASH
-      if (!ValidateBlockNumber(blockReceived)) return;      
-      const bool success = imageWriter.WriteBlock(unitNum, blockReceived, payload+4+512);  //Actual Data starts at offset 4
+      if (!ValidateBlockNumber(block_received_)) return;      
+      const bool success = image_writer_.WriteBlock(unit_num_, block_received_, payload+4+512);  //Actual Data starts at offset 4
       if (!success) throw CTFTPTask::ERR_RWFAILED;
       #endif
-      ++blockReceived;
+      ++block_received_;
       tftp_critical_section_enter_blocking();
-      tftp_state.blockTransferred = blockReceived;
+      tftp_state.blockTransferred = block_received_;
       tftp_critical_section_exit();    
     }
     
@@ -427,17 +413,17 @@ void CTFTPRXTask::ProcessDataPacket(const uint8_t* payload,uint16_t payloadlen,u
 // Timer timeout Handler
 //
 // Send the last packet by calling retry
-// If hasCompleted is set, end the process by calling Complete()
+// If has_completed_ is set, end the process by calling Complete()
 // and then return. See the note about Handling of Last Ack
 //
 void CTFTPRXTask::EvtTimeout(uint32_t arg){
-  if (hasCompleted) {
+  if (has_completed_) {
     this->Complete();
     tftp_critical_section_enter_blocking();
     tftp_state.status = TFTPSTATUS_COMPLETED;
     tftp_critical_section_exit();    
     INFO_PRINTF("tftp_state.status = TFTPSTATUS_COMPLETED\n");    
-    INFO_PRINTF("RX Transfer Completed! Block Count = %d\n",blockReceived);
+    INFO_PRINTF("RX Transfer Completed! Block Count = %d\n",block_received_);
     return;
   }
   
@@ -448,11 +434,11 @@ void CTFTPRXTask::EvtTimeout(uint32_t arg){
 // Retry() Method
 //
 // Send the last packet again.
-// If hasCompleted is set, send the last ACK Packet one more
+// If has_completed_ is set, send the last ACK Packet one more
 // time and then stop
 //
 void CTFTPRXTask::Retry() {
-  if (hasCompleted) {
+  if (has_completed_) {
     //Try Send last ACK Packet one more time and then stop
     INFO_PRINTF("Sending last ACK Packet again\n");
     SendPacket();
@@ -461,7 +447,7 @@ void CTFTPRXTask::Retry() {
     tftp_state.status = TFTPSTATUS_COMPLETED;
     tftp_critical_section_exit();   
     INFO_PRINTF("tftp_state.status = TFTPSTATUS_COMPLETED\n");    
-    INFO_PRINTF("RX Transfer Completed! Block Count = %d\n",blockReceived);  
+    INFO_PRINTF("RX Transfer Completed! Block Count = %d\n",block_received_);  
     return;    
   }
   
@@ -477,7 +463,7 @@ After the last Data packet is received, it is acknowledged by a ACK Packet. But 
 last ACK Packet can be lost. We can do nothing and simply let the server to timeout.
 But we can do it better.
 
-When the last data packet is received, a flag hasCompleted is set and timer with slightly
+When the last data packet is received, a flag has_completed_ is set and timer with slightly
 longer Timeout period is started.
 
 There are 2 possible situation. 
@@ -495,11 +481,11 @@ ACK packet one more time and then complete the process
 // Complete Method
 //
 // The size of DOS 3.3 image file should be multiple of 8 blocks.
-// If it is not, some block data remain in the buffer of imageWriter
+// If it is not, some block data remain in the buffer of image_writer_
 // object. In this case, shows error message (TFTPERROR_DOWRONGSIZE)
 //
 void CTFTPRXTask::Complete() {
-  if (imageWriter.getImageFormat()==ImageFormat::DO && !imageWriter.IsCompleted()) {
+  if (image_writer_.getImageFormat()==ImageFormat::DO && !image_writer_.IsCompleted()) {
     //This error has a lower priority. If another error has occured, don't
     //overwrite tftp_state.error
     if (tftp_state.error == TFTPERROR_NOERR) {

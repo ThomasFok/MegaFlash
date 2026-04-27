@@ -66,16 +66,16 @@ void CTFTPTXTask::EvtDNSResult(const int dns_error, const ip_addr_t *ipaddr) {
 // Start File Transfer by sending RRQ packet
 //
 void CTFTPTXTask::StartTransfer() {
-  this->server_port = tftpServerPort; //Reset server_port TFTP Server listening port
+  this->server_port_ = tftp_server_port_; //Reset server_port TFTP Server listening port
   BuildWriteRequestPacket();
-  if (enable1kBlockSize) {
+  if (enable_1k_block_size_) {
     AddOption("blksize","1024");    
     AddOption("tsize", block_count_*PRODOS_BLOCKSIZE); //Tell server the file size
   }
   
   SendPacket();
-  SetTimer(tftpTimeout);
-  attempt = 1; //First Attempt
+  SetTimer(tftp_timeout_);
+  attempt_ = 1; //First Attempt
   current_tftp_block_ = 0;  //Expecting to receive Ack Block #0 or OACK
   
   tftp_critical_section_enter_blocking();
@@ -110,8 +110,8 @@ void CTFTPTXTask::EvtUDPReceived(const uint8_t* payload,uint16_t payloadlen,ip_a
   
   //Check remote port
   //If server TID is not accepted, accept any remote port
-  //Otherwise, accept remote_port == server_port only
-  if (server_tid_accepted_ && remote_port!=server_port) {
+  //Otherwise, accept remote_port == server_port_ only
+  if (server_tid_accepted_ && remote_port!=server_port_) {
     TRACE_PRINTF("Discard Packet: Invalid remote port\n");
     return;
   }
@@ -149,9 +149,9 @@ void CTFTPTXTask::ProcessOACKPacket(const uint8_t* payload,uint16_t payloadlen,u
   
   //Accept remote_port (TID) 
   if (!server_tid_accepted_){
-    server_port = remote_port;
+    server_port_ = remote_port;
     server_tid_accepted_ = true;
-    DEBUG_PRINTF("Setting server_port to %d\n",remote_port);    
+    DEBUG_PRINTF("Setting server_port_ to %d\n",remote_port);    
   }
   
   //Parse and handle the options
@@ -179,7 +179,7 @@ void CTFTPTXTask::ProcessOACKPacket(const uint8_t* payload,uint16_t payloadlen,u
     SendPacket();
 
     WARN_PRINTF("Unrecongised blksize. Restarting transfer without blksize option\n");
-    enable1kBlockSize = false;  //Turn off 1024 blksize option
+    enable_1k_block_size_ = false;  //Turn off 1024 blksize option
     oack_received_ = false; 
     server_tid_accepted_ = false;  
     block_sent_ = 0;
@@ -201,32 +201,6 @@ void CTFTPTXTask::ProcessOACKPacket(const uint8_t* payload,uint16_t payloadlen,u
   SendDataPacket();
 }
 
-
-/**
- *  \brief Handle blksize option acknowledgement from server
- *  
- *  \param [in] value blksize option string
- *  \return true if the blksize option is valid.
- */
-bool CTFTPTXTask::HandleOACK_blksize(const char* value) {
-  //Only 512 and 1024 are acceptable
-  if (0==strcmp(value,"1024")) {
-    INFO_PRINTF("Switching TFTP blockSize to 1024\n");
-    tftp_block_size_=1024;
-    return true;
-  } else if (0==strcmp(value,"512")){
-    assert(tftp_block_size_==512);
-    return true;
-  } else {
-    //Unrecognised blksize. 
-    //We don't expect it would happen since 1024 is a perfectly good
-    //block size. 
-    //Anyway, we try to restart the transfer without 1024 blksize option
-    return false; 
-  }
-}
-
-
 //////////////////////////////////////////////////////////
 // Build and send Data packet
 //
@@ -247,16 +221,16 @@ void CTFTPTXTask::SendDataPacket() {
   ++current_tftp_block_; //Advance to next TFTP block
   TRACE_PRINTF("Sending TFTP Data Packet Block=%d, len=%d\n",current_tftp_block_,next_data_packet_len_);
   SendPacket(next_data_packet_buf_,next_data_packet_len_);
-  SetTimer(tftpTimeout);
-  attempt = 1; //First Attempt  
+  SetTimer(tftp_timeout_);
+  attempt_ = 1; //First Attempt  
   
   /**** Prepare next Data Packet while waiting Ack from server ****/
   
-  //Copy nextPacket to txbuffer for Retry()
+  //Copy nextPacket to txbuffer_ for Retry()
   //Also, update block_sent_ and has_completed_
-  memcpy(txbuffer,next_data_packet_buf_,next_data_packet_len_);
-  txpacketlen = next_data_packet_len_;  
-  const uint32_t payloadlen = txpacketlen - 4; //4 bytes for Data Packet header
+  memcpy(txbuffer_,next_data_packet_buf_,next_data_packet_len_);
+  txpacketlen_ = next_data_packet_len_;  
+  const uint32_t payloadlen = txpacketlen_ - 4; //4 bytes for Data Packet header
   assert(payloadlen==0 || payloadlen==512 || payloadlen==1024);
   block_sent_ += payloadlen/PRODOS_BLOCKSIZE;
   
@@ -305,7 +279,7 @@ uint32_t CTFTPTXTask::BuildDataPacket(uint8_t *dest_buffer,uint16_t tftp_block_n
   } else {
     //Put first block to payload
     assert(block_num<=0xffff);
-    uint error = ReadBlock(unitNum, block_num++, dest_buffer+4, NULL /*spErrorOut*/); //Read ProDOS block
+    uint error = ReadBlock(unit_num_, block_num++, dest_buffer+4, NULL /*spErrorOut*/); //Read ProDOS block
     if (error!=MFERR_NONE) throw CTFTPTask::ERR_RWFAILED;   
     packet_len += PRODOS_BLOCKSIZE;
     
@@ -313,7 +287,7 @@ uint32_t CTFTPTXTask::BuildDataPacket(uint8_t *dest_buffer,uint16_t tftp_block_n
     if (tftp_block_size_==1024) {
       if (block_num<block_count_) {
         assert(block_num<=0xffff);
-        error = ReadBlock(unitNum, block_num,dest_buffer+4+512, NULL /*spErrorOut*/); //Read ProDOS block
+        error = ReadBlock(unit_num_, block_num,dest_buffer+4+512, NULL /*spErrorOut*/); //Read ProDOS block
         if (error!=MFERR_NONE) throw CTFTPTask::ERR_RWFAILED;           
         packet_len += PRODOS_BLOCKSIZE;
       }     
@@ -339,9 +313,9 @@ void CTFTPTXTask::ProcessACKPacket(const uint8_t* payload,uint16_t payloadlen,ui
   if (block==0 && block_sent_==0) {
     //Accept remote_port (TID)
     if (!server_tid_accepted_){
-      server_port = remote_port;
+      server_port_ = remote_port;
       server_tid_accepted_ = true;
-      DEBUG_PRINTF("Setting server_port to %d\n",remote_port);    
+      DEBUG_PRINTF("Setting server_port_ to %d\n",remote_port);    
     }      
   }
   
