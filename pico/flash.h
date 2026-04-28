@@ -11,8 +11,7 @@ void InitSpi();
 void InitFlash();
 
 //Flash Chip ID routines
-uint32_t ReadJEDECID(const uint deviceNum);
-uint64_t ReadUniqueID(const uint deviceNum);
+uint32_t ReadJEDECID(const uint device_num);
 uint64_t ReadUniqueIDDevice0();
 
 //Erase entire flash chips
@@ -25,22 +24,22 @@ bool WriteUserConfigBlock(const uint8_t *src);
 //Flash Size/Block count
 uint32_t GetFlashSize();
 uint32_t GetUnitCountFlashActual();
-uint32_t GetBlockCountFlash(const uint unitNum);
-uint32_t GetBlockCountFlashActual(const uint unitNum);
-void GetDIBFlash(const uint unitNum, uint8_t *destBuffer);
+uint32_t GetBlockCountFlash(const uint unit_num);
+uint32_t GetBlockCountFlashActual(const uint unit_num);
+void GetDIBFlash(const uint unit_num, uint8_t *dest_buffer);
 
 //
 // All ProDOS blocks must be handled by routines with _Public suffix.
 // Read Bit Inversion note in flash.c file
 //
-rwerror_t ReadBlockFlash(const uint unitNum, const uint blockNum, uint8_t* destBuffer);
-rwerror_t WriteBlockFlash(const uint unitNum, const uint blockNum, const uint8_t* srcBuffer);
-bool WriteBlockFlashForImageTransfer(const uint unitNum, const uint blockNum, const uint8_t* srcBuffer);
+rwerror_t ReadBlockFlash(const uint unit_num, const uint block_num, uint8_t* dest_buffer);
+rwerror_t WriteBlockFlash(const uint unit_num, const uint block_num, const uint8_t* src_buffer);
+bool WriteBlockFlashForImageTransfer(const uint unit_num, const uint block_num, const uint8_t* src_buffer);
 
 //
 // Erase Flash Disk
 //
-void EraseFlashDisk(const uint unitNum);
+void EraseFlashDisk(const uint uint_num);
 void AbortEraseFlashDisk();
 
 #ifdef __cplusplus
