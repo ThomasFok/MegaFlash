@@ -399,9 +399,6 @@ BCLEN           = .LOBYTE(*-bcstart)    ;Length of bootcode
 
 ;--------------------------------------------------------
 ;Copy bootcode to RAM location BCRUN
-;Under normal operation, bootcode at bcloc is copied.
-;If SHOWBOOTMENUMAGIC is set, it jumps to loadbootmenu
-;routine. The routine will copy boot menu code to BCRUN instead
 ;
 ;Copy whole page (256 bytes) regardless the acutal size
 ;to reduce code length
