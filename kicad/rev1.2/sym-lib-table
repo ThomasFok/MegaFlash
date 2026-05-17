@@ -1,0 +1,7 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "PLD")(type "KiCad")(uri "${KIPRJMOD}/pld.kicad_sym")(options "")(descr ""))
+  (lib (name "MCU_RhaspberryPi_and_Boards")(type "KiCad")(uri "${KIPRJMOD}/MCU_RaspberryPi_and_Boards.kicad_sym")(options "")(descr ""))
+  (lib (name "Level_Shifter")(type "KiCad")(uri "${KIPRJMOD}/Level_Shifter.kicad_sym")(options "")(descr ""))
+  (lib (name "Memory_Winbond")(type "KiCad")(uri "${KIPRJMOD}/Memory_Winbond.kicad_sym")(options "")(descr ""))
+)
