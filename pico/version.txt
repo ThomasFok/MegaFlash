@@ -1,4 +1,4 @@
-Version 1.1.11
+Version 1.1.11 18-May-2026
 Pico Firmware
 - Compiled with C17 and C++17 standard
 - Support Alliance AS25F3512MQ flash chip
