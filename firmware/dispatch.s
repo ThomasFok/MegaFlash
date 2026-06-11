@@ -145,6 +145,7 @@ slxeq2:         ;Step 3 Save yval,aval to stack
                 lda $102,x      ;Get original value of yval
                 ldy yval        ;Get Y return value to Y Register
                 sta yval        ;Restore original value of yval
+                ;Don't change Y register after this point
                 
                 ;Current Stack:
                 ;
@@ -158,10 +159,11 @@ slxeq2:         ;Step 3 Save yval,aval to stack
                 ;aval -> a
                 ;Now, A register holds the A return value
                 ;aval is restored.
-                ply             ;pop the stack to get original value of aval
+                plx             ;pop the stack to get original value of aval
                 lda aval        ;Get A return value to A Register
-                sty aval        ;Restore original value of aval
+                stx aval        ;Restore original value of aval
                 plx             ;discard the original yval from stack
+                ;Don't change A and Y registers after this point
 
                 ;Current Stack:
                 ;
@@ -170,7 +172,7 @@ slxeq2:         ;Step 3 Save yval,aval to stack
                 ;offset +2: x return value     
 
                 ;Step 6 Restore Language Card and lcstate
-                ldx lcstate     ;Get Original LC state
+                ldx lcstate     ;Get LC setting
                 jmp slxeq3    
                 ;continue in IOROM segment to restore LC setting
                 
@@ -219,7 +221,6 @@ jmptable:
                 .addr loadcpanel        ; 4
                 .addr copybm            ; 5        
 JMPTBLLEN       = (*-jmptable)/2        ;No of entries of jmptable
-
 
 
 

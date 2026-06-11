@@ -1,4 +1,7 @@
-Version 1.0.1
+Version 1.0.2 (FWVERSION = $03)
+- Fix: ProDOS Driver Status command returned wrong drive capacity
+
+Version 1.0.1 (FWVERSION = $02)
 - Reduce memory usage in SLOTROM
 - Jump to boot menu via swjmp routine
 - Optimize readoneblock and writeoneblock routines
