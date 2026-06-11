@@ -44,7 +44,7 @@
 ;
 ; To call a handler through slxeq,
 ;
-; Load the handler ID called mode to A-register
+; Load the handler ID (aka mode) to A-register
 ; Load any optional parameter to X-register
 ; Then, call slxeq routine
 ;
