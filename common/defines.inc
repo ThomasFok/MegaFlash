@@ -2,15 +2,20 @@
 ; This files is shared with firmware and cpanel projects  
 ;
 
+;Default to Slot #4
+.ifndef SLOT
+SLOT = 4
+.endif
+
 
 ;
 ;Peripheral Registers
 ;
-cmdreg          := $c0c0        ;Command Register
-statusreg       := $c0c0        ;Status Register
-paramreg        := $c0c1        ;Parameter Register
-datareg         := $c0c2        ;Data Register
-idreg           := $c0c3        ;ID Register
+cmdreg          := $c080+SLOT*16        ;Command Register
+statusreg       := $c080+SLOT*16        ;Status Register
+paramreg        := $c081+SLOT*16        ;Parameter Register
+datareg         := $c082+SLOT*16        ;Data Register
+idreg           := $c083+SLOT*16        ;ID Register
 
 ;
 ;MegaFlash Command/Constant
@@ -94,11 +99,11 @@ ERRORCODEFIELD          = %00011111 ;Last five bits are error code field
 ;
 ;MegaFlash Activation Magic Address Sequence
 ;
-MAGIC1                  =       $C0C2
-MAGIC2                  =       $C0C0
-MAGIC3                  =       $C0C0
-MAGIC4                  =       $C0C3
-MAGIC5                  =       $C0C1
+MAGIC1                  =       $C082+SLOT*16
+MAGIC2                  =       $C080+SLOT*16 
+MAGIC3                  =       $C080+SLOT*16 
+MAGIC4                  =       $C083+SLOT*16 
+MAGIC5                  =       $C081+SLOT*16 
 
 ;
 ; Bits definition of configbyte1
