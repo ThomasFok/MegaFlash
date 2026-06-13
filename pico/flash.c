@@ -935,7 +935,6 @@ static uint32_t __no_inline_not_in_flash_func(ReadOneBlock)(const blockloc_t blo
 //
 // Output: CRC32 of the sector data
 //
-// todo: Add destBuffer
 static uint32_t __no_inline_not_in_flash_func(ReadSector)(const uint device_num,uint32_t sector_address,uint8_t* destBuffer){
   uint8_t msg[6];
   
@@ -973,6 +972,7 @@ static uint32_t __no_inline_not_in_flash_func(ReadSector)(const uint device_num,
 // Input: Device Number, Page Address, Pointer to Source Data (256 Bytes Buffer)
 //
 // Flash Programming is relative slow. No need to put this function to RAM
+//
 static void ProgramOnePage(const uint device_num,uint32_t page_address,const uint8_t* src) {
   //The lowest 8 bits of page_address should be 0.
   assert( (page_address & 0xff) == 0);
