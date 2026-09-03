@@ -592,7 +592,7 @@ static void ReadSecurityInformationRow_ISSI(const uint32_t regnum,uint8_t* dest,
   msg[4] = 0;       //Dummy 8-bit 
   
   enable_spi0(DEVICE0);
-  spi_write_blocking(spi0, msg, 6);
+  spi_write_blocking(spi0, msg, 5);
   spi_read_blocking(spi0, REPEATED_TX_DATA, dest, len);
   disable_spi0();
 }
@@ -829,7 +829,7 @@ static void EraseSector(const uint device_num, uint32_t address) {
   disable_spi0();
   //At least 50ns delay is needed after erase/write command (CS deselect time)  
   
-  //Accoridng to datasheet, Sector Erase needs at least 50ms(Winbond) or 50ms(ISSI IS25LP01GJ).
+  //Accoridng to datasheet, Sector Erase needs at least 50ms(Winbond) or 100ms(ISSI IS25LP01GJ).
   //Actual Test on WinBond: 55-60ms
   //Wait until the operation is completed.
   sleep_ms(40); 
@@ -1252,7 +1252,7 @@ static uint64_t ReadUniqueID_Winbond(const uint device_num) {
   assert(flash_type == NOR_WINBOND);  //Winbond only command      
   //2-Bytes Padding + Command + 5 Dummy Bytes + 8-Bytes Result
   uint8_t __attribute__((aligned(8))) txbuffer[16]={0,0,0x4b}; 
-  uint8_t __attribute__((aligned(8))) rxbuffer[16]={0,0,0x4b}; 
+  uint8_t __attribute__((aligned(8))) rxbuffer[16];
   //2-bytes padding so that the result is 64-bit aligned
   
   MUTEXLOCK();
@@ -1277,14 +1277,14 @@ static uint64_t ReadUniqueID_Winbond(const uint device_num) {
 //
 static uint64_t ReadUniqueID_ISSI(const uint device_num) {
   assert(flash_type == NOR_ISSI);  //ISSI only command      
-  //3-Bytes Padding + Command + 4 Dummy Bytes + 8-Bytes Result
-  uint8_t __attribute__((aligned(8))) txbuffer[16]={0,0,0,0x4b}; 
-  uint8_t __attribute__((aligned(8))) rxbuffer[16]={0,0,0,0x4b}; 
+  //3-Bytes Padding + Command + 3 Bytes Address + 1 Dummy Byte + 8-Bytes Result
+  uint8_t __attribute__((aligned(8))) txbuffer[16]={0,0,0,0x4b,0,0,0,0}; 
+  uint8_t __attribute__((aligned(8))) rxbuffer[16]; 
   //3-bytes padding so that the result is 64-bit aligned
   
   MUTEXLOCK();
   enable_spi0(device_num);
-  spi_write_read_blocking(spi0,txbuffer+2,rxbuffer+2,13);
+  spi_write_read_blocking(spi0,txbuffer+3,rxbuffer+3,13);
   disable_spi0();
   MUTEXUNLOCK();
   
@@ -1399,8 +1399,7 @@ static flash_info_t ChipIDToFlashInfo(const uint32_t id){
   else if (id==0xef7020) capacity = 64;     //Winbond W25Q512JV-DTR  
   else if (id==0xef7022) capacity = 256;    //Winbond W25Q02JV-DTR
   else if (id==0x204020) capacity = 64;     //Alliance AS25F3512MQ, Compatible with WinBond NOR chip
-#if 0  //Experimental ISSI Flash Chip support
-  else if (id==0x9d6020) { //ISSI IS25LP512MG 
+  else if (id==0x9d6020)  { //ISSI IS25LP512MG 
     flash_type = NOR_ISSI;
     capacity = 64;
   }else if (id==0x9d6021) { //ISSI IS25LP01GJ 
@@ -1410,7 +1409,6 @@ static flash_info_t ChipIDToFlashInfo(const uint32_t id){
     flash_type = NOR_ISSI;
     capacity = 256;
   }        
-#endif
 
   return (flash_info_t){.capacity_mb = capacity, .flash_type = flash_type};
 }
