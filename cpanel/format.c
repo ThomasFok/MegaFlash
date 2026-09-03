@@ -136,6 +136,8 @@ again:
   
 again2:  
   key = cgetc_showclock();
+  if (key == KEY_ESC) return;
+  
   if (key=='Y' || key=='y') eraseDrive=true;
   else if (key!='N' && key!='n' && key!=KEY_ENTER) {
     beep();
@@ -187,7 +189,7 @@ again2:
       goto exit;
     } else {
       gotoxy(0,2); clreol();  //Clear "It takes 2 min."
-      newline(); clreol();    //Clear "Don't reset"
+      newline(); clreol();    //Clear "Please wait"
       gotoxy(0,2);
     }
   }
