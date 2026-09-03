@@ -1,3 +1,11 @@
+Version 1.1.12 04-Sep-2026
+Pico Firmware
+- Support ISSI Flash Chips
+- Compiled with Pico SDK V2.3
+
+Apple Firmware
+- No changes (V1.0.2)
+
 Version 1.1.11 18-May-2026
 Pico Firmware
 - Compiled with C17 and C++17 standard
