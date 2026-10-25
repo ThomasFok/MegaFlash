@@ -34,7 +34,6 @@
 ; Slot Configuration
 ;
 SLOT            EQU     4               ;IIc/IIc+
-
 SLOTX16         EQU     (SLOT*16)       ;$n0
 SLOTCN          EQU     ($C0+SLOT)      ;$Cn
 
@@ -51,8 +50,8 @@ scratch5        :=      ($06F8 + SLOT)
 scratch6        :=      ($0778 + SLOT)
 scratch7        :=      ($07F8 + SLOT)
 
-
-
+;Address of xsetmou routine in slot 7
+xsetmou         :=      $C71C
 
 
 ;****************************************************************
@@ -88,13 +87,20 @@ boot:           lda #MODE_COPYBC        ;Copy bootcode to RAM
                 .assert .LOBYTE(*) = $10, error, "Signature not at $Cn10"
                 .byte SIGNATURE_AT_10
 
-                ;***********************************************
-                ;$90 and $4B must be in location $C411 and $C412
-                ;$4B duplicate the mouse entry as found in slot.
-                ;This fix enables some program to work correctly.
-                ;***********************************************
+
+                ;The byte at $Cn11 is not used
                 .assert .LOBYTE(*) = $11, error, "Code not at $Cn11"
-                .byte $90,$4B           
+                .byte $00
+                
+                ;***********************************************
+                ;Duplicate entry point of xsetmou routine
+                ;This fix enables some program to work correctly.
+                ;Note: For mouse firmware, $Cn12 is the offset 
+                ;of xsetmou routine                 
+                ;***********************************************                
+                .assert .LOBYTE(*) = $12, error, "Code not at $Cn12"
+                .byte .LOBYTE(to_xsetmou)
+to_xsetmou:     jmp xsetmou
 
 ;---------------------------------------------------------------
 ; ProDOS and Smartpoint Entry Point
@@ -447,13 +453,13 @@ copybc:
                 cmp $bf00
                 bne noprodos
                 
-                lda $3d2	
+                lda $3d2        
                 cmp #$be
                 bne noprodos
                 
                 lda $BFB0
-                cmp #$A0	
-                beq noprodos	
+                cmp #$A0        
+                beq noprodos    
 
                 inc xval        ;ProDOS found, change xval to 1
                 .endif          ;BOOTANY

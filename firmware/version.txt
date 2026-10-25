@@ -1,3 +1,6 @@
+Version 1.0.3
+- Fix: Add jmp instruction to xsetmou routine
+
 Version 1.0.2 (FWVERSION = $03)
 - Fix: ProDOS Driver Status command returned wrong drive capacity
 
