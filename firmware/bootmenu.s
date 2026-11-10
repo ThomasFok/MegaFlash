@@ -144,19 +144,24 @@ copybm:
 bmloc:                                  ;Physical Address of boot menu in ROM
                 
                 .org BMRUN              ;Switch to absolute code
-counter         := $03                  ;Use $03-04 as counter
-mfexist         := $05                  ;=0 if megaflash exist
+tmpptr          := $02                  ;$02-$03 as temporary pointer
+counter         := $04                  ;Use $04-05 as counter
+mfexist         := $06                  ;=0 if megaflash exist
 
 
 bmstart:        
                 jsr appleii             ;Clear Screen and Show Apple IIc
                 jsr chkmegaflash
                 sta mfexist
+                
+                ;$00-$01 should point to the slot we are trying to boot.
+                ;For example, to boot from slot 5, ($00) = $c500
+                ;Initialize it to $c600
+                stz $00
+                lda #$c6
+                sta $01
 ;--------------
 ; Display the menu on screen by writing to screen memory directly
-; It also trashes the bytes at $00 and $01. So, when we call
-; the boot code at $C400-C600, the code will not jump to next slot
-; if it fails to boot.
 ;
 again:    
                 .ifdef IICP
@@ -168,20 +173,19 @@ again:
                 jsr displaytime
 
                 ldx #0
-                ;Use $00-$01 as pointer to screen memory
                 lda menumsg,x
-nextmsg:        sta $01         ;High Byte of addr
+nextmsg:        sta tmpptr+1    ;High Byte of addr
                 inx
                 lda menumsg,x   ;Low Byte of Addr
-                sta $00         ;
+                sta tmpptr      ;
 
                 ;Copy the message
 :               inx             ;Next char
                 lda menumsg,x   ;load char
                 beq @exit       ;Zero = End of Messge     
                 bpl nextmsg     ;MSB clear, it is address byte of next message
-                sta ($0)
-                inc $0          ;Move pointer to next position. No need to handle
+                sta (tmpptr)
+                inc tmpptr      ;Move pointer to next position. No need to handle
                                 ;carry since we print on the same line only.
                 bra :-
 @exit:        
@@ -232,13 +236,13 @@ toagain:        bra again       ;Try again
 key2            := applesoft                
                 
 key3:           jsr enableromdisk
-                jmp $c400
+                ;fall into key4 (Boot from Slot 4)
                 
-key4            := $c400              
-
-key5            := $c500
-
-key6            := $c600  
+                ;To boot from a slot, ($0) should point to the slot (e.g. $c600)
+                ;$00-$01 is initialized to $c600
+key4:           dec $01         ;Set $01 to $c4 by dec it twice
+key5:           dec $01         ;Set $01 to $c5
+key6:           jmp ($00)
  
 key8:           ;Toggle CPU Speed
 .ifdef IICP
