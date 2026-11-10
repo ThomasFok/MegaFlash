@@ -1,11 +1,11 @@
-Version 1.0.3
+Version 1.0.3 11-Nov-2026 (FWVERSION = $04)
 - Fix: Add jmp instruction to xsetmou routine
 - Fix: Boot Unidisk 3.5 from Boot Menu
 
-Version 1.0.2 (FWVERSION = $03)
+Version 1.0.2 11-Jun-2026 (FWVERSION = $03)
 - Fix: ProDOS Driver Status command returned wrong drive capacity
 
-Version 1.0.1 (FWVERSION = $02)
+Version 1.0.1 08-Mar-2026 (FWVERSION = $02)
 - Reduce memory usage in SLOTROM
 - Jump to boot menu via swjmp routine
 - Optimize readoneblock and writeoneblock routines
