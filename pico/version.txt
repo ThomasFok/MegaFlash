@@ -1,3 +1,12 @@
+Version 1.2.0dev
+Pico Firmware
+- Compiled with Pico SDK V2.3.1
+- Copy II Reboot is included in ROM Disk
+- Removal of Pico RP2040 support
+
+Apple Firmware
+- No changes (V1.0.3)
+
 Version 1.1.12 04-Sep-2026
 Pico Firmware
 - Support ISSI Flash Chips
