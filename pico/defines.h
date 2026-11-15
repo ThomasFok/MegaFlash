@@ -11,7 +11,7 @@
 ****************************************************/
 
 #define FIRMWAREVER     0x0010
-#define FIRMWAREVERSTR  "V1.1.12"
+#define FIRMWAREVERSTR  "V1.2.0Dev"
 // 0x0000 = V0.1
 // 0x0001 = V0.2   18-Apr-2025
 // 0x0002 = V0.3   05-May-2025
@@ -47,18 +47,10 @@
 
 
 //RAM Disk Size in Bytes
-#ifdef PICO_RP2040
-#define RAMDISK_SIZE (140*1024)
-#else
 #define RAMDISK_SIZE (400*1024)   /* Free heap is 36k when size =400k */
-#endif
 
 //Slinky Size in Bytes
-#ifdef PICO_RP2040
-#define SLINKY_SIZE (128*1024)
-#else
 #define SLINKY_SIZE (256*1024)
-#endif
 
 //Buffer Size
 #define PARAMBUFFERSIZE  32 //Note: Smartport DIB requires 25 bytes

@@ -8,7 +8,6 @@
 #include "debug.h"
 #include "a2bus.h"
 #include "busloop.h"
-#include "busloop_wa.h"
 #include "flash.h"
 #include "flashunitmapper.h"
 #include "ramdisk.h"
@@ -64,15 +63,9 @@ void __no_inline_not_in_flash_func(core1Main)() {
   //Initalize data
   CommandHandlerInit();
    
-#ifdef PICO_RP2040
-  //RP2040 does not have enough memory to emulate a slinky (min: 256kB)
-  //Wait for activation sequence
-  BusLoopWaitActiviation();
-#else
   //Emulate a slinky while waiting for activation sequence
   SlinkyInit();
   BusLoopSlinky();
-#endif
   
   //Start actual bus loop
   BusLoopDataInit();    //It takes 8us to complete the initialization

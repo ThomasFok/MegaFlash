@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.13...3.27)
 
 #PICO_BOARD is set by command line -DPICO_BOARD=
-##set(PICO_BOARD pico_w)
+##set(PICO_BOARD pico2_w)
 
 #All builds share the same PICOTOOL
 set(PICOTOOL_FETCH_FROM_GIT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/picotool)
@@ -22,7 +22,6 @@ add_executable(${CMAKE_PROJECT_NAME}
     main.c
     a2bus.c
     busloop.c
-    busloop_wa.c
     cmdhandler.c
     flash.c
     flashunitmapper.c
@@ -65,10 +64,6 @@ pico_add_extra_outputs(${CMAKE_PROJECT_NAME})
 
 #to compile .pio file
 pico_generate_pio_header(${CMAKE_PROJECT_NAME}
-	${CMAKE_CURRENT_SOURCE_DIR}/a2bus_rp2040.pio
-)
-
-pico_generate_pio_header(${CMAKE_PROJECT_NAME}
 	${CMAKE_CURRENT_SOURCE_DIR}/a2bus_rp2350.pio
 )
 
@@ -94,17 +89,8 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
   pico_cyw43_arch_lwip_poll
 )
 
-#RP2040: Set system speed to 150MHz
-#SPI does not work at 100MHz. So, set the speed to 150MHz
-#and run SPI at 75MHz
-if (PICO_BOARD STREQUAL pico_w)
-target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE SYS_CLK_MHZ=150)
-endif()
-
-#RP2350: Set to 1 to overclock CPU
-if (PICO_BOARD STREQUAL pico2_w)
+#Set to 1 to overclock RP2350 CPU
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE OC_RP2350=1)
-endif()
 
 #Allow setting CYW43 PIO clock divisor
 target_compile_definitions(cyw43_driver_picow INTERFACE CYW43_PIO_CLOCK_DIV_DYNAMIC=1)

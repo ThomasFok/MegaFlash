@@ -61,47 +61,9 @@ static inline void PioSwitchToSlinkyMode() {
 // i.e. Do not report reading from address $C0C0 to CPU
 //
 void PioSwitchToNativeMode() {
-#ifdef PICO_RP2040
-  RestoreInst(PIO_A2BUS,&a2bus_program,a2buslistener_program_offset,get_patch_linenum());
-#else  
   RestoreInst(PIO_A2BUS,&a2buslistener_program,a2buslistener_program_offset,get_patch_linenum());
-#endif
 }
 
-
-#ifdef PICO_RP2040
-//
-//RP2040 Implementation
-//
-void InitPIO() {
-  //Get CPU clock speed
-  const uint32_t sys_clk_hz = clock_get_hz(clk_sys);
-  
-  //Add PIO program to PIO instruction memory
-  a2buslistener_program_offset = pio_add_program(PIO_A2BUS, &a2bus_program);
-  
-  //Patch the program to run in Slinky mode
-  PioSwitchToSlinkyMode();
-
-  //Initialize all 4 state machines
-  for(uint sm=0;sm<4;++sm) {
-    //Initialize the program. The function is defined in .pio file
-    a2bus_program_init(PIO_A2BUS, sm, a2buslistener_program_offset, sys_clk_hz);
-    
-    //Start running PIO program
-    pio_sm_set_enabled(PIO_A2BUS, sm, true /*=run*/);
-
-    //Tell the state machine its ID with RnW bit set to 1
-    pio_sm_put(PIO_A2BUS, sm, sm | 0b100);
-    
-    //Initialize MegaFlash registers to zero
-    pio_sm_put(PIO_A2BUS, sm, 0x00);
-  } 
-}
-#else
-//
-//RP2350 Implementation
-//
 void InitPIO() {
   //Get CPU clock speed  
   const uint32_t sys_clk_hz = clock_get_hz(clk_sys);
@@ -136,5 +98,3 @@ void InitPIO() {
   //Start running PIO program
   pio_sm_set_enabled(PIO_A2BUS, SM_A2BUS, true /*=run*/); 
 }  
-
-#endif
