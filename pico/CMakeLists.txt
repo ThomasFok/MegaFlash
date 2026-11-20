@@ -26,8 +26,7 @@ add_executable(${CMAKE_PROJECT_NAME}
     flash.c
     flashunitmapper.c
     mediaaccess.c
-    romdisk.c
-    romdisk.s       
+    romdisk.c  
     ramdisk.c
     usbserial.c
     filetransfer.c
@@ -52,11 +51,19 @@ add_executable(${CMAKE_PROJECT_NAME}
     imagewriter.cpp
 )
 
+#Use romdisk_debug.po for Debug build
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_sources(${CMAKE_PROJECT_NAME} PRIVATE romdisk_debug.s)
+else()
+    target_sources(${CMAKE_PROJECT_NAME} PRIVATE romdisk.s)
+endif()
+
 #standard C lib printf for FPU fout() function
 pico_set_printf_implementation(${CMAKE_PROJECT_NAME} compiler)
 
 #extra file dependencies
 set_source_files_properties(romdisk.s OBJECT_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/romdisk.po)
+set_source_files_properties(romdisk_debug.s OBJECT_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/romdisk_debug.po)
 set_source_files_properties(cpanel.s  OBJECT_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/../cpanel/cpanel.bin)
 
 #to generate .uf2 file

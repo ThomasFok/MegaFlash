@@ -19,11 +19,7 @@
 @
         .align 4
 romdiskImage:
-.ifdef NDEBUG
         .incbin "romdisk.po"
-.else
-        .incbin "romdisk_debug.po"
-.endif
 romdiskImageEnd:
 
 @
