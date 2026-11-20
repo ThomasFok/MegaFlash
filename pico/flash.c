@@ -1329,8 +1329,6 @@ void InitSpi(){
   gpio_set_slew_rate(SCK_PIN,  GPIO_SLEW_RATE_FAST);
   gpio_set_slew_rate(MOSI_PIN, GPIO_SLEW_RATE_FAST); //TX
   
-  gpio_set_drive_strength(CS0_PIN,  GPIO_DRIVE_STRENGTH_8MA);
-  gpio_set_drive_strength(CS1_PIN,  GPIO_DRIVE_STRENGTH_8MA);
   gpio_set_drive_strength(SCK_PIN,  GPIO_DRIVE_STRENGTH_8MA);
   gpio_set_drive_strength(MOSI_PIN, GPIO_DRIVE_STRENGTH_8MA);
 
