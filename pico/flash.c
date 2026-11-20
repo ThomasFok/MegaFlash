@@ -1325,12 +1325,14 @@ void InitSpi(){
   spi_init(spi0,SPI_SPEED_INIT);    
 
   //Set slew rate of SPI clk and tx pins to fast and 
-  //drive strength to 8ma to make SPI work reliably at 75MHz
+  //drive strength to 4ma to make SPI work reliably at 75MHz
+  //Note: 8mA drive strength may have problem with Alliance flash chips
+  //ISSI chips not work with 2mA drive strength.
+  //4mA is the sweet spot.
   gpio_set_slew_rate(SCK_PIN,  GPIO_SLEW_RATE_FAST);
   gpio_set_slew_rate(MOSI_PIN, GPIO_SLEW_RATE_FAST); //TX
-  
-  gpio_set_drive_strength(SCK_PIN,  GPIO_DRIVE_STRENGTH_8MA);
-  gpio_set_drive_strength(MOSI_PIN, GPIO_DRIVE_STRENGTH_8MA);
+  gpio_set_drive_strength(SCK_PIN,  GPIO_DRIVE_STRENGTH_4MA);
+  gpio_set_drive_strength(MOSI_PIN, GPIO_DRIVE_STRENGTH_4MA);
 
   //disable pull resistors of output pins
   gpio_disable_pulls(CS0_PIN);
