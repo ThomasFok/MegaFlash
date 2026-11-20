@@ -1324,10 +1324,8 @@ void InitSpi(){
   //to SPI_SPEED_FINAL after initialization of flash
   spi_init(spi0,SPI_SPEED_INIT);    
 
-  //Set slew rate of SPI output pins to fast and 
+  //Set slew rate of SPI clk and tx pins to fast and 
   //drive strength to 8ma to make SPI work reliably at 75MHz
-  gpio_set_slew_rate(CS0_PIN,  GPIO_SLEW_RATE_FAST);
-  gpio_set_slew_rate(CS1_PIN,  GPIO_SLEW_RATE_FAST);
   gpio_set_slew_rate(SCK_PIN,  GPIO_SLEW_RATE_FAST);
   gpio_set_slew_rate(MOSI_PIN, GPIO_SLEW_RATE_FAST); //TX
   
