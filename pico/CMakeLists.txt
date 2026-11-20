@@ -51,7 +51,7 @@ add_executable(${CMAKE_PROJECT_NAME}
     imagewriter.cpp
 )
 
-#Use romdisk_debug.po for Debug build
+#Use romdisk_debug.po as ROM Disk for Debug build
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_sources(${CMAKE_PROJECT_NAME} PRIVATE romdisk_debug.s)
 else()
