@@ -1,5 +1,5 @@
 @ There is no way to embed binary data to C program without conversion.
-@ This assembly file is to include the romdisk.po file as binary data
+@ This assembly file is to include the romdisk_debug.po file as binary data
 @ using .incbin directive.
 @
 @ Two symbols are exported.
@@ -15,7 +15,7 @@
 .global romdiskImageLen
 
 @
-@ romdisk.po binary data
+@ romdisk_debug.po binary data
 @
         .align 4
 romdiskImage:
