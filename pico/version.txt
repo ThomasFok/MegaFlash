@@ -3,6 +3,8 @@ Pico Firmware
 - Compiled with Pico SDK V2.3.1
 - Copy II Reboot is included in ROM Disk
 - Removal of Pico RP2040 support
+- Allowed mixing of different flash types
+- Debug and Release build use different image files for ROM Disk
 
 Apple Firmware
 - No changes (V1.0.3)
