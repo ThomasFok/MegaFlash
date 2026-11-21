@@ -80,6 +80,9 @@ static uint32_t flash_count = 0;
 //Number of units (ProDOS drives) on each flash chip
 static uint32_t unit_count_flash[MAX_FLASH_DEVICE];
 
+//Total Number of units on all flash chips
+static uint32_t total_unit_count = 0;
+
 //Total Flash Capacity in MB
 static uint32_t total_flash_size = 0;
 
@@ -1558,6 +1561,8 @@ static uint32_t __no_inline_not_in_flash_func(ReadFromFlashByDMA)(uint8_t *dest_
 void InitFlash() {
   memset(flash_type, 0, sizeof(flash_type));
   memset(unit_count_flash, 0, sizeof(unit_count_flash));
+  flash_count = 0;
+  total_unit_count = 0;
 
   //Init Flash chips
   for(uint32_t device=0;device<MAX_FLASH_DEVICE;++device) {
@@ -1568,7 +1573,9 @@ void InitFlash() {
     }
     flash_type[device] = info.flash_type;
     total_flash_size += info.capacity_mb;
-    unit_count_flash[device] = info.capacity_mb / SIZEPERUNIT_MB;
+    const uint32_t unit_count = info.capacity_mb / SIZEPERUNIT_MB;
+    unit_count_flash[device] = unit_count;
+    total_unit_count += unit_count;
     SetFlashDriveStrength(device);
     Enable4BytesAddressing(device);
     ++flash_count;
@@ -1592,14 +1599,12 @@ void InitFlash() {
 //******************************************************************
 
 //////////////////////////////////////////////////////
-// Return the acutal unit count of Flash
+// Return the actual unit count of Flash
 //
 // Output: uintCount - Number of ProDOS drives
 //
 uint32_t GetUnitCountFlashActual(){
-  uint32_t total = 0;
-  for(uint32_t device=0;device<flash_count;++device) total += unit_count_flash[device];
-  return total;
+  return total_unit_count;
 }
 
 
