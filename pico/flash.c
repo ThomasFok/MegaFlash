@@ -46,8 +46,6 @@ auto_init_recursive_mutex(flashMutex);
 #define MUTEXLOCK()   recursive_mutex_enter_blocking(&flashMutex)
 #define MUTEXUNLOCK() recursive_mutex_exit(&flashMutex)
 
-
-
 //SPI pins
 const uint CS0_PIN  = 5;  //Chip #0 /CS
 const uint CS1_PIN  = 28; //Chip #1 /CS
@@ -73,23 +71,24 @@ static const uint FLASH_BUSYFLAG = 0b00000001;  //Busy Flash in Flash Status Reg
 #define DEVICE0 0
 #define DEVICE1 1
 
-//Data Buffers
-static uint8_t __attribute__((aligned(4))) sector_buffer[SECTORSIZE];
+//Max Number of Flash Chips
+#define MAX_FLASH_DEVICE 2
 
-//Number of units (ProDOS drives) on Flash chip
-static uint32_t unit_count_flash0 = 0;
-static uint32_t unit_count_flash1 = 0;
+//Number of flash chips present
+static uint32_t flash_count = 0;
 
-//Flash Capacity in MB
-static uint32_t flash_size0 = 0;
-static uint32_t flash_size1 = 0;
+//Number of units (ProDOS drives) on each flash chip
+static uint32_t unit_count_flash[MAX_FLASH_DEVICE];
 
-//Flash Type
+//Total Flash Capacity in MB
+static uint32_t total_flash_size = 0;
+
+//Flash Type of each device
 typedef enum {
   NOR_WINBOND,
   NOR_ISSI
 } flash_type_t;
-static flash_type_t flash_type = NOR_WINBOND;
+static flash_type_t flash_type[MAX_FLASH_DEVICE];
 
 
 //To store the location of a block
@@ -97,6 +96,9 @@ typedef struct {
   uint device_num;         //Flash Chip device number
   uint32_t block_address;  //Address of block
 } blockloc_t;
+
+//Data Buffer
+static uint8_t __attribute__((aligned(4))) sector_buffer[SECTORSIZE];
 
 ////////////////////////////////////////////////////////////////////
 //Function Prototypes of Read by DMA
@@ -112,10 +114,10 @@ static uint32_t ReadFromFlashByDMA(uint8_t *dest_buffer,const uint32_t len,bool*
 //////////////////////////////////////////////////////
 // Return the capacity of flash
 //
-// Output: uint32_t - Flash capacity in MB
+// Output: uint32_t - Total Flash capacity in MB
 //
 uint32_t GetFlashSize() {
-  return flash_size0+flash_size1;
+  return total_flash_size;
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -196,7 +198,7 @@ static void __no_inline_not_in_flash_func(WriteEnable)(const uint device_num) {
 //The Reset command also reset volatile status bits
 //
 static void WriteEnableVSR_Winbond(const uint device_num) {
-  assert(flash_type == NOR_WINBOND);  //WinBond only command
+  assert(flash_type[device_num] == NOR_WINBOND);  //WinBond only command
   const uint8_t msg[]={0x50};  //Write Enable for Volatile SR command
   
   enable_spi0(device_num);
@@ -239,7 +241,7 @@ static void ResetChip(const uint device_num,const bool with_delay) {
   
   //It takes 30us(WinBond) or 100us(ISSI) to reset.
   if (with_delay) {
-    if (flash_type == NOR_ISSI) sleep_us(100);
+    if (flash_type[device_num] == NOR_ISSI) sleep_us(100);
     else sleep_us(30);   
   }
 }
@@ -249,7 +251,7 @@ static void ResetChip(const uint device_num,const bool with_delay) {
 // Software Die Select
 //
 static uint8_t DieSelect_Winbond(const uint device_num, const uint8_t die_id) {
-  assert(flash_type == NOR_WINBOND);  //WinBond only command
+  assert(flash_type[device_num] == NOR_WINBOND);  //WinBond only command
   uint8_t msg[2];  
   
   msg[0]=0xc2;  //Software Die Select
@@ -267,7 +269,7 @@ static uint8_t DieSelect_Winbond(const uint device_num, const uint8_t die_id) {
 //
 // Output: Status Register-1
 //
-//Note Status Register-1 are the same on WinBond and ISSI
+// Note Status Register-1 are the same on WinBond and ISSI
 static uint8_t __no_inline_not_in_flash_func(ReadStatus1)(const uint device_num) {
   //Read Status Register-1 Command + 1 Byte Result
   uint8_t txbuffer[2]={0x05};  
@@ -281,14 +283,14 @@ static uint8_t __no_inline_not_in_flash_func(ReadStatus1)(const uint device_num)
 }
 
 ////////////////////////////////////////////////////////////////////
-// Read Status Register-3 from Flash Chip
+// Read Status Register-3 from Flash Chip (Winbond)
 //
 // Input: Device Number
 //
 // Output: Status Register-3
 //
 static uint8_t ReadStatus3_Winbond(const uint device_num) {
-  assert(flash_type == NOR_WINBOND);  //Winbond only command
+  assert(flash_type[device_num] == NOR_WINBOND);  //Winbond only command
   //Read Status Register-3 Command + 1 Byte Result
   uint8_t txbuffer[2]={0x15};  
   uint8_t rxbuffer[2];
@@ -307,7 +309,7 @@ static uint8_t ReadStatus3_Winbond(const uint device_num) {
 //        Value to be written
 //
 static uint8_t WriteStatus3Volatile_Winbond(const uint device_num, const uint8_t value) {
-  assert(flash_type == NOR_WINBOND);  //Winbond only command  
+  assert(flash_type[device_num] == NOR_WINBOND);  //Winbond only command  
   uint8_t msg[2];  
   
   msg[0]=0x11;  //Write Status Register-3 command
@@ -321,13 +323,33 @@ static uint8_t WriteStatus3Volatile_Winbond(const uint device_num, const uint8_t
 }
 
 ////////////////////////////////////////////////////////////////////
+// Read Extended Read Register from flash chip (ISSI)
+//
+// Input: Device Number
+//
+// Output: Status Register-3
+//
+static uint8_t ReadExtendedRead_ISSI(const uint device_num) {
+  assert(flash_type[device_num] == NOR_ISSI);  //ISSI only command
+  //Read Extended Read Register Command + 1 Byte Result
+  uint8_t txbuffer[2]={0x81};  
+  uint8_t rxbuffer[2];
+  
+  enable_spi0(device_num);
+  spi_write_read_blocking(spi0, txbuffer, rxbuffer, 2); 
+  disable_spi0();
+  
+  return rxbuffer[1];
+}
+
+////////////////////////////////////////////////////////////////////
 // Write to Volatile Extended Read Parameters Register (ISSI)
 //
 // Input: Device Number
 //        Value to be written
 //
 static uint8_t WriteExtendedReadVolatile_ISSI(const uint device_num, const uint8_t value) {
-  assert(flash_type == NOR_ISSI);  //ISSI only command  
+  assert(flash_type[device_num] == NOR_ISSI);  //ISSI only command  
   uint8_t msg[2];  
   
   msg[0]=0x83;  //Set Extended Read Parameter Volatile command
@@ -367,12 +389,12 @@ static void WaitUntilBusyClear(const uint device_num) {
 // Input: Device Number
 //
 static void SetFlashDriveStrength(const uint device_num) {
-  if (flash_type == NOR_WINBOND) {
+  if (flash_type[device_num] == NOR_WINBOND) {
     uint8_t regvalue = ReadStatus3_Winbond(device_num);
     regvalue &= 0b10011111; //Clear drv1,drv0 bits
     regvalue |= 0b00100000; //Set to 75%
     WriteStatus3Volatile_Winbond(device_num, regvalue);
-  } else if (flash_type == NOR_ISSI) {
+  } else if (flash_type[device_num] == NOR_ISSI) {
     //Note: Bit 3-0 is read only
     //Bit 4 is DLPEN (Data learning Pattern Enable), which should be set to 0
     //Bit 7-5 is drive strength. Default: 0b111 (50%). 0b101=75%, 0b110=100%
@@ -390,7 +412,7 @@ static void SetFlashDriveStrength(const uint device_num) {
 //
 // Note: Always write to Flash Chip #0
 static void ProgramSecurityInformationRow_ISSI(const uint32_t regnum,const uint8_t* src,const size_t len) {
-  assert(flash_type == NOR_ISSI);  //ISSI only command  
+  assert(flash_type[DEVICE0] == NOR_ISSI);  //ISSI only command  
   if (regnum >3) {
     assert(0);
     return;
@@ -427,7 +449,7 @@ static void ProgramSecurityInformationRow_ISSI(const uint32_t regnum,const uint8
 //
 // Note: Always write to Flash Chip #0
 static void ProgramSecurityRegister_WinBond(const uint32_t regnum,const uint8_t* src,const size_t len) {
-  assert(flash_type == NOR_WINBOND);  //Winbond only command  
+  assert(flash_type[DEVICE0] == NOR_WINBOND);  //Winbond only command  
   if (regnum==0 || regnum >3) {
     assert(0);
     return;
@@ -462,7 +484,7 @@ static void ProgramSecurityRegister_WinBond(const uint32_t regnum,const uint8_t*
 //
 // Note: Always erase flash chip #0
 static void EraseSecurityRegister_Winbond(const uint32_t regnum) {
-  assert(flash_type == NOR_WINBOND);  //Winbond only command  
+  assert(flash_type[DEVICE0] == NOR_WINBOND);  //Winbond only command  
   if (regnum==0 || regnum >3) {
     assert(0);
     return;
@@ -496,7 +518,7 @@ static void EraseSecurityRegister_Winbond(const uint32_t regnum) {
 //
 // Note: Always erase flash chip #0
 static void EraseSecurityInformationRow_ISSI(const uint32_t regnum) {
-  assert(flash_type == NOR_ISSI);  //ISSI only command  
+  assert(flash_type[DEVICE0] == NOR_ISSI);  //ISSI only command  
   if (regnum >3) {
     assert(0);
     return;
@@ -534,7 +556,7 @@ static void EraseSecurityInformationRow_ISSI(const uint32_t regnum) {
 //
 // Note: Always Read from flash chip #0
 static void ReadSecurityRegister_Winbond(const uint32_t regnum,uint8_t* dest,const uint8_t offset,const size_t len) {
-  assert(flash_type == NOR_WINBOND);  //Winbond only command    
+  assert(flash_type[DEVICE0] == NOR_WINBOND);  //Winbond only command    
   if (regnum==0 || regnum >3) {
     assert(0);
     return;
@@ -571,7 +593,7 @@ static void ReadSecurityRegister_Winbond(const uint32_t regnum,uint8_t* dest,con
 //
 // Note: Always Read from flash chip #0
 static void ReadSecurityInformationRow_ISSI(const uint32_t regnum,uint8_t* dest,const uint8_t offset,const size_t len) {
-  assert(flash_type == NOR_ISSI);  //ISSI only command    
+  assert(flash_type[DEVICE0] == NOR_ISSI);  //ISSI only command    
   if (regnum >3) {
     assert(0);
     return;
@@ -609,7 +631,7 @@ static void ReadSecurityInformationRow_ISSI(const uint32_t regnum,uint8_t* dest,
 //
 // Note: Always Read from flash chip #0
 static void WriteSecurityRegister_Winbond(const uint32_t regnum,const uint8_t* src,const uint8_t offset,const size_t len) {
-  assert(flash_type == NOR_WINBOND);  //Winbond only command    
+  assert(flash_type[DEVICE0] == NOR_WINBOND);  //Winbond only command    
   if (regnum==0 || regnum >3) {
     assert(0);
     return;
@@ -649,7 +671,7 @@ static void WriteSecurityRegister_Winbond(const uint32_t regnum,const uint8_t* s
 //
 // Note: Always Read from flash chip #0
 static void WriteSecurityInformationRow_ISSI(const uint32_t regnum,const uint8_t* src,const uint8_t offset,const size_t len) {
-  assert(flash_type == NOR_ISSI);  //ISSI only command    
+  assert(flash_type[DEVICE0] == NOR_ISSI);  //ISSI only command    
   if (regnum >3) {
     assert(0);
     return;
@@ -679,54 +701,56 @@ static void WriteSecurityInformationRow_ISSI(const uint32_t regnum,const uint8_t
 }
 
 ////////////////////////////////////////////////////////////////////
-// Read UserConfig block from security register
+// Read UserConfig block from security register from flash chip #0
 // 
 // Input: uint8_t* dest - destination buffer
 //
 // Output: bool - success
 //
-// Note: Security register 1 and 2 are used to store UserConfigBlock
+// Note: Security register 1 and 2 are used to store UserConfigBlock on Winbond
+//       Information Row 0 and 1 on ISSI chip
 bool ReadUserConfigBlock(uint8_t* dest) {
-  if (0==flash_size0) {
+  if (0==flash_count) {
     //clear the dest buffer if flash chip does not exist
     memset(dest,0, 512);
     return false;
   }
   
   MUTEXLOCK();
-  if (flash_type == NOR_WINBOND) {
+  if (flash_type[DEVICE0] == NOR_WINBOND) {
     ReadSecurityRegister_Winbond(1,dest    ,0 /*offset*/,256);
     ReadSecurityRegister_Winbond(2,dest+256,0 /*offset*/,256);
-  } else if (flash_type == NOR_ISSI){
+  } else if (flash_type[DEVICE0] == NOR_ISSI){
     ReadSecurityInformationRow_ISSI(0,dest    ,0 /*offset*/,256);
     ReadSecurityInformationRow_ISSI(1,dest+256,0 /*offset*/,256);
-  }
+  } else assert(false);
   MUTEXUNLOCK();
   
   return true;
 }
 
 ////////////////////////////////////////////////////////////////////
-// Write UserConfig block to security register
+// Write UserConfig block to security register to flash chip #0
 // 
 // Input: uint8_t* src - source buffer
 //
 // Output: bool - success
 //
-// Note: Security register 1 and 2 are used to store UserConfigBlock
+// Note: Security register 1 and 2 are used to store UserConfigBlock on Winbond
+//       Information Row 0 and 1 on ISSI chip
 bool WriteUserConfigBlock(const uint8_t *src) {
- if (0==flash_size0) {
+ if (0==flash_count) {
     return false;
  }   
 
   MUTEXLOCK();
-  if (flash_type == NOR_WINBOND) {
+  if (flash_type[DEVICE0] == NOR_WINBOND) {
     WriteSecurityRegister_Winbond(1,src    ,0 /*offset*/,256);
     WriteSecurityRegister_Winbond(2,src+256,0 /*offset*/,256);
-  } else if (flash_type == NOR_ISSI) {
+  } else if (flash_type[DEVICE0] == NOR_ISSI) {
     WriteSecurityInformationRow_ISSI(0,src    ,0 /*offset*/,256);
     WriteSecurityInformationRow_ISSI(1,src+256,0 /*offset*/,256);
-  }
+  } else assert(false);
   MUTEXUNLOCK();
   
   return true;
@@ -744,16 +768,21 @@ bool WriteUserConfigBlock(const uint8_t *src) {
 // Output: blockloc_t struct
 //
 static blockloc_t __no_inline_not_in_flash_func(GetBlockLoc)(uint unit_num, const uint block_num) {
-  blockloc_t blockloc;
+  assert(unit_num != 0);
+  assert(unit_num <= GetUnitCountFlashActual());
 
-  //Make sure unit_num != 0
-  if (unit_num == 0) panic("GetBlockLoc() unit_num==0");
+  blockloc_t blockloc;
+  blockloc.device_num = 0;
+  blockloc.block_address = 0;
   
-  if (unit_num<=unit_count_flash0) {
-    blockloc.device_num = DEVICE0;
-  } else {
-    blockloc.device_num = DEVICE1;
-    unit_num -= unit_count_flash0;
+  //Find which flash chip has the unit.
+  for(uint32_t device=0;device<flash_count;++device) {
+    if (unit_num<=unit_count_flash[device]) {
+      blockloc.device_num = device;
+      break;  //found!
+    } else {
+      unit_num -= unit_count_flash[device];
+    }
   }
   
   uint32_t block_address;
@@ -767,40 +796,45 @@ static blockloc_t __no_inline_not_in_flash_func(GetBlockLoc)(uint unit_num, cons
   return blockloc;
 }
 
+////////////////////////////////////////////////////////////////////
+//Return the minimum time needed to erase a flash chip in ms
+//
+static uint32_t GetChipEraseTime_ms(const flash_type_t flash_type) {
+  //Accoridng to datasheet, Chip Erase needs at least 200s (Winbond) or 100s (ISSI IS25LP01GJ).
+  if (flash_type == NOR_WINBOND) return 180*1000;
+  else if (flash_type == NOR_ISSI) return 80*1000;
+  else {
+    assert(false);
+    return 60*1000;
+  }
+}
 
 ////////////////////////////////////////////////////////////////////
 // Erase the content of all flash chips
-// Note: It takes at least 200 seconds to complete. 
+// Note: It takes at least 200 seconds to complete for WinBond chips
 //
 static void EraseContent() {
   const uint8_t msg[]= {0x60}; //chip erase command
+  uint32_t wait_ms = 0;
   
-  //Start erase flash chip #0
-  WriteEnable(DEVICE0);
-  enable_spi0(DEVICE0);
-  spi_write_blocking(spi0, msg, 1);
-  disable_spi0();
+  //do nothing if no flash chip
+  if (flash_count == 0) return;
   
-  //Start erase flash chip #1 if it exists
-  if (flash_size1!=0) {
-    WriteEnable(DEVICE1);
-    enable_spi0(DEVICE1);
-    spi_write_blocking(spi0, msg, 1);
-    disable_spi0();
+  //Start erase flash chips
+  for (uint device=0;device<flash_count;++device) {
+      WriteEnable(device);
+      enable_spi0(device);
+      spi_write_blocking(spi0, msg, 1);
+      disable_spi0();
+      wait_ms = MAX(wait_ms,GetChipEraseTime_ms(flash_type[device]));
   }
   
-  //Accoridng to datasheet, Chip Erase needs at least 200s (Winbond) or 100s (ISSI IS25LP01GJ).
-  if (flash_type == NOR_WINBOND) sleep_ms(180*1000);
-  else if (flash_type == NOR_ISSI) sleep_ms(80*1000);
+  //Wait while the chips are being erased
+  sleep_ms(wait_ms);
 
-  //Wait until flash chip #0 completes its operation
-  while(ReadStatus1(DEVICE0) & FLASH_BUSYFLAG){
-    sleep_ms(10);
-  }
-  
-  //Wait until flash chip #1 completes its operation
-  if (flash_size1!=0) {
-    while(ReadStatus1(DEVICE1) & FLASH_BUSYFLAG){
+  //Wait until all flash chips complete their operation
+  for (uint device=0;device<flash_count;++device) {
+    while(ReadStatus1(device) & FLASH_BUSYFLAG){
       sleep_ms(10);
     }
   }
@@ -812,7 +846,6 @@ static void EraseContent() {
 //
 static void EraseSector(const uint device_num, uint32_t address) {
   uint8_t msg[5];
-  
   
   //Make sure it aligns at the begining of a sector 
   address = address & 0xfffff000; 
@@ -872,18 +905,17 @@ static void EraseSector64k(const uint device_num, uint32_t address) {
 //
 void EraseEverything() {
   MUTEXLOCK();
-  if (flash_type == NOR_WINBOND) {
+  if (flash_type[0] == NOR_WINBOND) {
     EraseSecurityRegister_Winbond(1);
     EraseSecurityRegister_Winbond(2);
     EraseSecurityRegister_Winbond(3);
-    EraseContent();    
-  } else if (flash_type == NOR_ISSI) {
+  } else if (flash_type[0] == NOR_ISSI) {
     EraseSecurityInformationRow_ISSI(0);
     EraseSecurityInformationRow_ISSI(1);
     EraseSecurityInformationRow_ISSI(2);
     EraseSecurityInformationRow_ISSI(3);
-    EraseContent();    
   }
+  EraseContent();  
   MUTEXUNLOCK();
 }
 
@@ -909,7 +941,7 @@ static uint32_t __no_inline_not_in_flash_func(ReadOneBlock)(const blockloc_t blo
   msg[1] = (uint8_t)(block_address);
   msg[5] = 0;   //Dummy 8-bit
   
-  bool success;
+  bool success = false;
   enable_spi0(blockloc.device_num);
   spi_write_blocking(spi0, msg, 6);
   uint32_t crc=ReadFromFlashByDMA(dest,BLOCKSIZE,&success);
@@ -1249,7 +1281,7 @@ uint32_t ReadJEDECID(const uint device_num) {
 // Output: Unique 64-bit ID
 //
 static uint64_t ReadUniqueID_Winbond(const uint device_num) {
-  assert(flash_type == NOR_WINBOND);  //Winbond only command      
+  assert(flash_type[device_num] == NOR_WINBOND);  //Winbond only command      
   //2-Bytes Padding + Command + 5 Dummy Bytes + 8-Bytes Result
   uint8_t __attribute__((aligned(8))) txbuffer[16]={0,0,0x4b}; 
   uint8_t __attribute__((aligned(8))) rxbuffer[16];
@@ -1276,7 +1308,7 @@ static uint64_t ReadUniqueID_Winbond(const uint device_num) {
 // Output: Unique 64-bit ID
 //
 static uint64_t ReadUniqueID_ISSI(const uint device_num) {
-  assert(flash_type == NOR_ISSI);  //ISSI only command      
+  assert(flash_type[device_num] == NOR_ISSI);  //ISSI only command      
   //3-Bytes Padding + Command + 3 Bytes Address + 1 Dummy Byte + 8-Bytes Result
   uint8_t __attribute__((aligned(8))) txbuffer[16]={0,0,0,0x4b,0,0,0,0}; 
   uint8_t __attribute__((aligned(8))) rxbuffer[16]; 
@@ -1299,8 +1331,8 @@ static uint64_t ReadUniqueID_ISSI(const uint device_num) {
 // Output: Unique 64-bit ID
 //
 uint64_t ReadUniqueIDDevice0() {
-  if (flash_type==NOR_WINBOND) return ReadUniqueID_Winbond(DEVICE0);
-  else if (flash_type == NOR_ISSI) return ReadUniqueID_ISSI(DEVICE0);
+  if (flash_type[DEVICE0]==NOR_WINBOND) return ReadUniqueID_Winbond(DEVICE0);
+  else if (flash_type[DEVICE0] == NOR_ISSI) return ReadUniqueID_ISSI(DEVICE0);
   else return 0;
 }
 
@@ -1384,7 +1416,7 @@ typedef struct {
  *  \param [in] id Flash JEDECID
  *  \return flash_info_t struct
  *  
- *  \details capacity_mb is 0 if the chip ID is not supported.
+ *  \details capacity_mb is 0 if the chip is not supported.
  */
 static flash_info_t ChipIDToFlashInfo(const uint32_t id){
   uint32_t capacity = 0;
@@ -1427,7 +1459,7 @@ static flash_info_t ChipIDToFlashInfo(const uint32_t id){
 //bus priority and increasing core voltage do not help.
 //The problem occurs only during TFTP file transfer. A disk-to-disk copy with Copy II plus
 //is performed. But there was no such problem.
-//It usually happens less than 6 times during the entire file transfer. 
+//It usually happens fewer than 6 times during the entire file transfer. 
 //So, DMA failure rate < 0.01%.
 //
 //The workaround is to set a timeout. If the RX DMA does not finish, the DMA is aborted
@@ -1524,42 +1556,33 @@ static uint32_t __no_inline_not_in_flash_func(ReadFromFlashByDMA)(uint8_t *dest_
 // Initalize Flash related data and flash chips
 //
 void InitFlash() {
-  flash_size0 = 0;
-  unit_count_flash0 = 0;
-  flash_size1 = 0;
-  unit_count_flash1 = 0;
+  memset(flash_type, 0, sizeof(flash_type));
+  memset(unit_count_flash, 0, sizeof(unit_count_flash));
 
-  //Init Flash chip #0
-  uint32_t id = ReadJEDECID(DEVICE0);
-  flash_info_t info = ChipIDToFlashInfo(id);
-  if (info.capacity_mb == 0) {
-    //Single Flash chip in Flash #1 is not supported.
-    //So, if flash chip #0 is not present, do not set SPI speed to SPI_SPEED_FINAL
-    return;     
+  //Init Flash chips
+  for(uint32_t device=0;device<MAX_FLASH_DEVICE;++device) {
+    const uint32_t id = ReadJEDECID(device);
+    flash_info_t info = ChipIDToFlashInfo(id);
+    if (info.capacity_mb == 0) {
+      break;  //stop when no flash flash is found at current device
+    }
+    flash_type[device] = info.flash_type;
+    total_flash_size += info.capacity_mb;
+    unit_count_flash[device] = info.capacity_mb / SIZEPERUNIT_MB;
+    SetFlashDriveStrength(device);
+    Enable4BytesAddressing(device);
+    ++flash_count;
   }
-  flash_type = info.flash_type;
-  flash_size0 = info.capacity_mb;
-  unit_count_flash0 = info.capacity_mb / SIZEPERUNIT_MB;
-  SetFlashDriveStrength(DEVICE0);
-  Enable4BytesAddressing(DEVICE0);
 
-  //Init Flash Chip #1
-  id = ReadJEDECID(DEVICE1);
-  info = ChipIDToFlashInfo(id);
-  //Both chips must be same type
-  if (info.capacity_mb != 0 && info.flash_type == flash_type) {
-    flash_size1 = info.capacity_mb;
-    unit_count_flash1 = info.capacity_mb / SIZEPERUNIT_MB;
-    SetFlashDriveStrength(DEVICE1);
-    Enable4BytesAddressing(DEVICE1);
-  } 
-
-  //Set SPI Speed to SPI_SPEED_FINAL
-  spi_set_baudrate(spi0, SPI_SPEED_FINAL);
+  //Setup SPI if at least one flash chip is present.
+  if (flash_count > 0) {
+    //Set SPI Speed to SPI_SPEED_FINAL
+    spi_set_baudrate(spi0, SPI_SPEED_FINAL);
   
-  //Flash Chip is present.
-  //Disable the pull resistor for maximum data transmission speed
-  gpio_disable_pulls(MISO_PIN);
+    //Flash Chip is present.
+    //Disable the pull resistor of Rx pin for maximum data transmission speed
+    gpio_disable_pulls(MISO_PIN);
+  }
 }
 
 //******************************************************************
@@ -1574,7 +1597,9 @@ void InitFlash() {
 // Output: uintCount - Number of ProDOS drives
 //
 uint32_t GetUnitCountFlashActual(){
-  return unit_count_flash0+unit_count_flash1;
+  uint32_t total = 0;
+  for(uint32_t device=0;device<flash_count;++device) total += unit_count_flash[device];
+  return total;
 }
 
 
