@@ -1,4 +1,4 @@
-Version 1.2.0dev
+Version 1.2.0 23-Nov-2026
 Pico Firmware
 - Compiled with Pico SDK V2.3.1
 - Copy II Reboot is included in ROM Disk
@@ -6,8 +6,11 @@ Pico Firmware
 - Allowed mixing of different flash types
 - Debug and Release build use different image files for ROM Disk
 
-Apple Firmware
-- No changes (V1.0.3)
+Apple Firmware V1.0.4
+- Fix: Proper centering of Apple IIc + title screen
+- New Build Flag: NOIOACCESS for testing on emulators
+- Boot fromm MegaFlash Drive #2 and external 5.25 drive (IIc only) from boot menu
+- New boot menu layout
 
 Version 1.1.12 04-Sep-2026
 Pico Firmware
