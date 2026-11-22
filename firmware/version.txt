@@ -1,6 +1,8 @@
-Version 1.0.4
+Version 1.0.4 23-Nov-2026 (FMVERSION = $05)
 - Fix: Proper centering of Apple IIc + title screen
-- New Build Flag: NOIOACCESS
+- New Build Flag: NOIOACCESS for testing on emulators
+- Boot fromm MegaFlash Drive #2 and external 5.25 drive (IIc only) from boot menu
+- New boot menu layout
 
 Version 1.0.3 11-Nov-2026 (FWVERSION = $04)
 - Fix: Add jmp instruction to xsetmou routine

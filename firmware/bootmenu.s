@@ -155,6 +155,7 @@ bmstart:
                 sta mfexist
                 
                 ;$00-$01 should point to the slot we are trying to boot.
+                ;Otherwise, Unidisk 3.5 does not boot from boot menu on IIc+
                 ;For example, to boot from slot 5, ($00) = $c500
                 ;Initialize it to $c600
                 stz $00
@@ -169,9 +170,6 @@ again:
                 jsr showcpuspeedswrts   ;show CPU speed and return to main bank
                 .endif
                 
-                ;Show Clock
-                jsr displaytime
-
                 ldx #0
                 lda menumsg,x
 nextmsg:        sta tmpptr+1    ;High Byte of addr
@@ -190,70 +188,104 @@ nextmsg:        sta tmpptr+1    ;High Byte of addr
                 bra :-
 @exit:        
 ;----
-                ;Wait for user input
+                ;Wait for user input and display time
                 jsr getkey
                 
                 pha             ;Save the keyboard input
                 jsr appleii     ;Clear Screen and Show Apple II to
-                                ;give feedback to user
+                                ;give instant feedback to user
                 pla             ;Restore the keyboard input
-                
-                ;'C' is same as key 7 (Control Panel)
-                cmp #'C'|$80
-                beq key7
-                cmp #'c'|$80
-                beq key7
                 
                 ;Esc key to reboot
                 cmp #27|$80
-                beq esckey
+                bne @next
+                jmp pwrup       ;Cold Start (Ctrl-OA-Reset)
+
+@next:          
 .ifdef IICP
-                ;Space is same as key 8 (Toggle Speed)
+                ;Space is same as S (Toggle CPU Speed)
                 cmp #' '|$80 
-                beq key8              
+                beq togglespeed             
 .endif
-                ;Only key 2 - 8 is valid
+                ;key 2-7?
+                cmp #('7'+1)|$80
+                bge notnumber                
                 cmp #'2'|$80
-                blt unknown
-                cmp #'9'|$80
-                bge unknown
-                
+                blt notnumber   ;bcc notnumber
+                ;carry flag = 1
+
                 ;Convert ASCII to zero-based number
-                ;i.e. '2'->0, '3'->1 and so on
-                sec
+                ;i.e. '2->0, '3'->1 and so on
+                ;carry flag already set. SEC instruction not required
                 sbc #'2'|$80
+                
+                ;Jump to handler with the jump table
                 asl
                 tax
                 jmp (bmjmptable,x)
+
+notnumber:      ;handle A-Z keys
+                and #%11011111   ;clear bit 5 to convert lowercase letter to uppercase
+                
+.ifdef IICP   
+                ;'S' key for toggle speed
+                cmp #'S'|$80
+                beq togglespeed
+.endif                 
+                
+                ;'M' key for Monitor
+                cmp #'M'|$80
+                bne @next
+                jmp monitor
+                
+                ;'C' key for control panel
+@next:          cmp #'C'|$80
+                beq cpanel
+                ;fall into unknown
     
                 ;-------------
                 ;Unknown key is entered
 unknown:        jsr bell        ;Warn the user
-toagain:        bra again       ;Try again
+                bra again       ;Try again
                 
-                ;-----------
-                ;Actions of keys
-key2            := applesoft                
+;///////////////////////////////////////////////////////////
+;Actions of keys
+; 
+ .ifdef IICP
+togglespeed:    ;Toggle CPU Speed
+                sta rombank             ;the routine is in aux bank
+                jsr toggleshowcpuspeedswrts
+                bra again
+.endif   
                 
-key3:           jsr enableromdisk
-                ;fall into key4 (Boot from Slot 4)
+boots4d2:       ;Boot from MegaFlash Drive 2 by simulating IN#4 cmd
+                ;The bootcode of MegaFlash will boot from drive 2
+                lda #$c4
+                sta kswh
+                bra boots4d1
+                
+bootromdisk:    jsr enableromdisk
+                ;fall into boots4d1 (Boot from MegaFlash Drive 1)
                 
                 ;To boot from a slot, ($0) should point to the slot (e.g. $c600)
                 ;$00-$01 is initialized to $c600
-key4:           dec $01         ;Set $01 to $c4 by dec it twice
-key5:           dec $01         ;Set $01 to $c5
-key6:           jmp ($00)
- 
-key8:           ;Toggle CPU Speed
-.ifdef IICP
-                sta rombank             ;the routine is in aux bank
-                jsr toggleshowcpuspeedswrts
-                bra toagain
-.else
-                bra unknown             
-.endif                
+boots4d1:       dec $01         ;Set $01 to $c4 by dec it twice
+boots5:         dec $01         ;Set $01 to $c5
+boots6d1:       jmp ($00)
 
-esckey:         jmp pwrup               ;Cold Start (Ctrl-OA-Reset)
+.ifdef IIC
+boots6d2:       
+                ;Boot 5.25 Drive 2 (IIc only, not work on IIc+)
+                lda #$e0        ;Slot 6, Unit 2
+                ldy #$01        ;y=1 to boot from drive 2
+                ldx #$60        ;Slot 6
+                ;duplicate the code from $C604-$C607
+                stz $03
+                stz $3c
+                jmp $c60b
+.endif
+ 
+             
 
 ;///////////////////////////////////////////////////////////
 ;Load Control Panel from MegaFlash to RAM and execute
@@ -265,7 +297,7 @@ esckey:         jmp pwrup               ;Cold Start (Ctrl-OA-Reset)
 ;   Otherwise,it jumps to $3D0 to return to DOS
 ;2) It uses HIMEM ($73-74) to setup its stack.
 
-key7:           
+cpanel:           
                 ;Set HIMEM to $bf00
                 ld16i himem,$bf00
                 
@@ -301,32 +333,37 @@ notfoundmsg:     hascii "MegaFlash Not Found"
 NFMSGLEN        = (*-notfoundmsg)
  
 ;--------------------------
+;getkey
 ;A small routine to get keyboard input
 ;It also displays time regularly.
-getkey:         
-                .ifdef IICP
-                lda acia1cmd    ;Touch slot 1 ($C09A) to slow down on IIC+
-                .endif
+getkeyloop:         
+                lda acia1cmd    ;Touch slot 1 ($C09A) to slow down on IIC+ and IIC with ZIP CHIP
 
+                ;display time if counter = 0
                 inc counter
                 bne :+
                 inc counter+1
                 bne :+
-                jsr displaytime
-:                
+getkey:         jsr displaytime
+:        
                 lda kbd
-                bpl getkey      ;Wait Until kbd strobe bit is set
+                bpl getkeyloop  ;Wait Until kbd strobe bit is set
                 stz kbdstrb     ;Clear kbd strobe bit
                 rts 
                 
 ;-------------------------- 
-bmjmptable:     .addr key2         
-                .addr key3
-                .addr key4
-                .addr key5
-                .addr key6
-                .addr key7
-                .addr key8 
+;jump table
+;key 2 - 7
+bmjmptable:     .addr bootromdisk       ;key 2  
+                .addr boots4d1          ;key 3
+                .addr boots4d2          ;key 4
+                .addr boots5            ;key 5
+                .addr boots6d1          ;key 6
+.ifdef IICP
+                .addr unknown           ;key 7 for IIc+
+.else
+                .addr boots6d2          ;key 7 for IIc
+.endif
 
 ;--------------------------
 ; Menu Message
@@ -339,29 +376,69 @@ bmjmptable:     .addr key2
 ;
                 htab = 10
  menumsg:
-                .dbyt (LINE5+htab)      
-                hascii "2) Applesoft"
+.ifdef IICP     
+                ;
+                ;Menu for Apple IIc+
+                ;
+               .dbyt (LINE5+htab)   
+                hascii "Boot from:"
                 
-                .dbyt (LINE6+htab)
-                hascii "3) Boot ROM Disk"
+                .dbyt (LINE6+htab+2)
+                hascii "2) ROM Disk"
                 
-                .dbyt (LINE7+htab)
-                hascii "4) Boot MegaFlash"
+                .dbyt (LINE7+htab+2)
+                hascii "3) MegaFlash Drv 1"
                 
-                .dbyt (LINE8+htab)
-                hascii "5) Boot 3.5/SmartPort"
+                .dbyt (LINE8+htab+2)
+                hascii "4) MegaFlash Drv 2"                
                 
-                .dbyt (LINE9+htab)
-                hascii "6) Boot 5.25"
+                .dbyt (LINE9+htab+2)
+                hascii "5) 3.5/SmartPort"
+               
+                .dbyt (LINE10+htab+2)
+                hascii "6) Ext. 5.25"
+
+                .dbyt (LINE12+htab)
+                hascii "C) Control Panel"   
+
+                .dbyt (LINE13+htab)      
+                hascii "M) Monitor"
+                       
+                .dbyt (LINE14+htab)
+                hascii "S) Toggle CPU Speed"        
                 
-                .dbyt (LINE10+htab)
-                hascii "7) Control Panel"                
+.else           
+                ;
+                ;Menu for Apple IIc
+                ;
+                .dbyt (LINE4+htab)   
+                hascii "Boot from:"
                 
-.ifdef IICP                
-                .dbyt (LINE11+htab)
-                hascii "8) Toggle CPU Speed"                   
+                .dbyt (LINE5+htab+2)
+                hascii "2) ROM Disk"
+                
+                .dbyt (LINE6+htab+2)
+                hascii "3) MegaFlash Drv 1"
+                
+                .dbyt (LINE7+htab+2)
+                hascii "4) MegaFlash Drv 2"                
+                
+                .dbyt (LINE8+htab+2)
+                hascii "5) 3.5/SmartPort"
+               
+                .dbyt (LINE9+htab+2)
+                hascii "6) Int. 5.25"
+
+                .dbyt (LINE10+htab+2)
+                hascii "7) Ext. 5.25"        
+
+                .dbyt (LINE12+htab)
+                hascii "C) Control Panel"   
+
+                .dbyt (LINE13+htab)      
+                hascii "M) Monitor"
 .endif           
-           
+
                 .dbyt (LINE21+(40-TITLESTRLEN)/2)       ;Centre the message       
 titlestr:       hascii TITLESTR
 TITLESTRLEN     = (*-titlestr)                

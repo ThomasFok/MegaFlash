@@ -2,16 +2,17 @@
 ; Constants
 ;
 SPDRIVERVERSION   =       $0000              ;SmartPort Version, reported to host 
-FWVERSION         =       $04                ;Version of this Firmware, Stored at $C4FA
+FWVERSION         =       $05                ;Version of this Firmware, Stored at $C4FA
 .if DEBUG
-.define TITLESTR "MegaFlash Firmware D1.0.3"   ;Shown on boot menu screen, Debug Version
+.define TITLESTR "MegaFlash Firmware D1.0.4"   ;Shown on boot menu screen, Debug Version
 .else
-.define TITLESTR "MegaFlash Firmware V1.0.3"   ;Shown on boot menu screen
+.define TITLESTR "MegaFlash Firmware V1.0.4"   ;Shown on boot menu screen
 .endif
 ; $01 = Version 1.0    13-Jul-2025
 ; $02 = Version 1.0.1  08-Mar-2026
 ; $03 = Version 1.0.2  11-Jun-2026
 ; $04 = Version 1.0.3  11-Nov-2026
+; $05 = Version 1.0.4  23-Nov-2026
 
 .define IDSTR   "MEGAFLASH DRV N "           ;ID String Padded to 16 bytes
 IDSTRLEN          =       15
@@ -169,6 +170,7 @@ appleii         :=      $FB60   ;Clear screen and show Apple IIc
 vtab            :=      $FC22   ;Recalculate base address after changing cv
 vtab23          :=      $FB59   ;Set Cursor Vertical Position to 23
 wait            :=      $FCA8
+monitor         :=      $FF69   ;System Monitor
 
 ;
 ; System Zero Page
