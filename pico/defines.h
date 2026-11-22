@@ -10,8 +10,8 @@
 
 ****************************************************/
 
-#define FIRMWAREVER     0x0010
-#define FIRMWAREVERSTR  "V1.2.0Dev"
+#define FIRMWAREVER     0x0011
+#define FIRMWAREVERSTR  "V1.2.0"
 // 0x0000 = V0.1
 // 0x0001 = V0.2   18-Apr-2025
 // 0x0002 = V0.3   05-May-2025
@@ -29,6 +29,7 @@
 // 0x000E = V1.1.10 19-Mar-2026
 // 0x000F = V1.1.11 18-May-2026
 // 0x0010 = V1.1.12 04-Sep-2026
+// 0x0011 = V1.2.0  23-Nov-2026
 
 //Deivce Signature Bytes
 #define SIGNATURE1 0x88
