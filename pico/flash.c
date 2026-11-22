@@ -60,7 +60,7 @@ const uint MISO_PIN = 4;  //rx
 //Constants
 #define SECTORSIZE 4096
 #define PAGEPERSECTOR 16
-#define BLOCKSPERUNIT_P8		 0xffff  //Number of blocks per drive for ProDOS 8
+#define BLOCKSPERUNIT_P8     0xffff  //Number of blocks per drive for ProDOS 8
 #define BLOCKSPERUNIT_ACTUAL 0x10000 //Actual capacity per drive
 #define SIZEPERUNIT_MB 32   
 
