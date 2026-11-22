@@ -371,7 +371,7 @@ REGINILEN = 4
         .proc   NORMAL
         ldy     #$06                            ; 6 characters
 @loop:  lda     msg-1,y                         ; Get message byte
-        sta     $0490,y                         ; Put on screen
+        sta     $048F,y                         ; Put on screen
         dey
         bne     @loop
         rts                                     ; done               `
@@ -383,7 +383,7 @@ msg:    .byte   $CE, $EF, $F2, $ED, $E1, $EC    ; 'Normal'
         .proc   FAST
         ldy     #$06                            ; 6 characters
 @loop:  lda     msg-1,y                         ; Get message byte
-        sta     $0490,y                         ; Put on screen
+        sta     $048F,y                         ; Put on screen
         dey
         bne     @loop
         rts                                     ; done               `

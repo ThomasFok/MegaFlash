@@ -115,7 +115,7 @@ bell2:          lda #$0c
 ;
                 .segment "B0_FB68"
                 .reloc
-                sta $040e,y
+                sta $040d,y
                 
 .endif ;.ifdef IICP
 
