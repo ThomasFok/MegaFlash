@@ -11,11 +11,20 @@ SLOT = 4
 ;
 ;Peripheral Registers
 ;
+.if .NOT NOIOACCESS
 cmdreg          := $c080+SLOT*16        ;Command Register
 statusreg       := $c080+SLOT*16        ;Status Register
 paramreg        := $c081+SLOT*16        ;Parameter Register
 datareg         := $c082+SLOT*16        ;Data Register
 idreg           := $c083+SLOT*16        ;ID Register
+.else
+;Set I/O address to ROM so that the ROM can be used on emulator without MegaFlash hardware
+cmdreg          := $c100                ;Command Register
+statusreg       := $c100                ;Status Register
+paramreg        := $c100                ;Parameter Register
+datareg         := $c100                ;Data Register
+idreg           := $c100                ;ID Register
+.endif
 
 ;
 ;MegaFlash Command/Constant

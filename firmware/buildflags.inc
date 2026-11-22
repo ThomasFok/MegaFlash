@@ -9,6 +9,17 @@
 ;serial port
 DEBUG 	        EQU     FALSE
 
+;------------------------------------------
+;No Access to MegaFlash I/O Addresses
+;Default: FALSE
+;
+;When the ROM is tested on MAME, it has some
+;strange behaviours. It may be caused by access
+;of Slinky I/O addresses. When this flag is set
+;to TURE, the I/O addresses are set to $C100,
+;which is read-only ROM area.
+NOIOACCESS      EQU FALSE
+
 
 ;------------------------------------------
 ;Restore Zero Page Scratch Area
